@@ -1,0 +1,50 @@
+{
+  "name": "GAB Dining Club",
+  "short_name": "GAB",
+  "description": "Private member dining club — NYC restaurant discovery & events",
+  "start_url": "/map.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F6F3",
+  "theme_color": "#534AB7",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/map.html",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "categories": ["food", "lifestyle", "social"],
+  "shortcuts": [
+    {
+      "name": "Discover",
+      "url": "/map.html",
+      "description": "NYC restaurant map"
+    },
+    {
+      "name": "Events",
+      "url": "/events.html",
+      "description": "Upcoming dining events"
+    },
+    {
+      "name": "Members",
+      "url": "/crm.html",
+      "description": "Club members"
+    }
+  ]
+}

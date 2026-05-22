@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: gab-dining-club
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt && mkdir -p data
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///./data/gab.db
+      - key: APP_HOST
+        value: 0.0.0.0
+      - key: BASE_URL
+        fromService:
+          type: web
+          name: gab-dining-club
+          property: host
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_PLACES_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
+      - key: FROM_NAME
+        value: GAB Dining Club

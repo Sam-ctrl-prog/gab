@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GAB — Events</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#534AB7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="GAB">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+<style>
+  /* ── Views ── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── Event card ── */
+  .ev-card {
+    background: var(--surface); border: 0.5px solid var(--b1);
+    border-radius: var(--r); padding: 14px 16px;
+    cursor: pointer; margin-bottom: 8px;
+    transition: background .12s; -webkit-tap-highlight-color: transparent;
+  }
+  .ev-card:active { background: var(--s2); }
+  .ev-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+  .ev-card-date { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--purple-600); margin-bottom: 3px; }
+  .ev-card-name { font-size: 15px; font-weight: 600; color: var(--text); }
+  .ev-card-loc  { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .ev-status-pill {
+    font-size: 10px; font-weight: 500; padding: 3px 9px; border-radius: 20px;
+    flex-shrink: 0; white-space: nowrap;
+  }
+  .s-draft     { background: var(--s2);        color: var(--dim); border: 0.5px solid var(--b1); }
+  .s-confirmed { background: var(--teal-50);   color: var(--teal-600); }
+  .s-completed { background: var(--s2);        color: var(--muted); }
+  .s-cancelled { background: var(--coral-50);  color: var(--coral-600); }
+  .ev-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .ev-card-guests { font-size: 11px; color: var(--muted); }
+  .avatar-stack { display: flex; align-items: center; }
+  .avatar-stack .av {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--purple-50); color: var(--purple-600);
+    font-size: 9px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid var(--surface);
+    margin-left: -6px; flex-shrink: 0;
+  }
+  .avatar-stack .av:first-child { margin-left: 0; }
+  .avatar-stack .av.teal { background: var(--teal-50); color: var(--teal-600); }
+  .avatar-stack .av.coral { background: var(--coral-50); color: var(--coral-600); }
+  .avatar-stack .av.more { background: var(--s2); color: var(--muted); font-size: 8px; }
+  .ev-progress { flex: 1; max-width: 100px; margin-left: 10px; }
+
+  /* ── Segment ── */
+  .segment {
+    display: flex; background: var(--s2); border-radius: 10px; padding: 3px;
+    gap: 2px; margin-bottom: 16px;
+  }
+  .seg-btn {
+    flex: 1; padding: 8px; border-radius: 8px; font-size: 13px;
+    font-weight: 500; color: var(--muted); transition: all .15s; text-align: center;
+  }
+  .seg-btn.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+
+  /* ── Create form ── */
+  .locked-pill {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px; background: var(--coral-50);
+    color: var(--coral-600); border-radius: 10px;
+    font-size: 13px; font-weight: 500; margin-bottom: 12px;
+  }
+  .locked-pill .clear { cursor: pointer; margin-left: auto; opacity: .7; font-size: 16px; }
+  .locked-pill .clear:hover { opacity: 1; }
+
+  .rest-search-wrap { position: relative; margin-bottom: 12px; }
+  .rest-dropdown {
+    position: absolute; top: calc(100% + 2px); left: 0; right: 0;
+    background: var(--surface); border: 0.5px solid var(--b2);
+    border-radius: var(--r); max-height: 200px; overflow-y: auto;
+    z-index: 20; box-shadow: 0 4px 20px rgba(0,0,0,.1); display: none;
+  }
+  .rest-dropdown.open { display: block; }
+  .drop-item {
+    padding: 10px 14px; cursor: pointer; font-size: 13px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 0.5px solid var(--b1);
+  }
+  .drop-item:last-child { border-bottom: none; }
+  .drop-item:active { background: var(--s2); }
+  .drop-item-sub { font-size: 11px; color: var(--muted); }
+
+  .guest-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .guest-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; background: var(--teal-50);
+    color: var(--teal-600); border-radius: 20px; font-size: 12px;
+  }
+  .guest-pill .rm { cursor: pointer; opacity: .7; font-size: 14px; line-height: 1; }
+
+  .tmpl-card {
+    background: var(--s2); border: 0.5px solid var(--b1);
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 6px;
+    cursor: pointer; transition: all .12s;
+  }
+  .tmpl-card:active, .tmpl-card.selected { border-color: var(--purple-200); background: var(--purple-50); }
+  .tmpl-card-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .tmpl-card-sub  { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  /* ── Detail sheet ── */
+  .detail-sheet {
+    display: none; position: fixed; inset: 0; z-index: 400;
+    background: rgba(0,0,0,.2); backdrop-filter: blur(2px);
+    align-items: flex-end;
+  }
+  .detail-sheet.open { display: flex; }
+  .detail-body {
+    background: var(--surface); border-radius: 20px 20px 0 0;
+    width: 100%; max-height: 90dvh; overflow-y: auto;
+    padding: 16px 16px calc(var(--bottom-nav-h) + 16px);
+    box-shadow: 0 -8px 40px rgba(0,0,0,.12);
+  }
+  .detail-handle { width: 36px; height: 4px; background: var(--b2); border-radius: 2px; margin: 0 auto 14px; cursor: pointer; }
+  .detail-title { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .detail-meta  { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+
+  .guest-table-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 0.5px solid var(--b1);
+  }
+  .guest-table-row:last-child { border-bottom: none; }
+  .guest-name { font-size: 13px; font-weight: 500; }
+  .guest-sub  { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .rsvp-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; }
+  .r-accepted { background: var(--teal-50);  color: var(--teal-600); }
+  .r-declined { background: var(--coral-50); color: var(--coral-600); }
+  .r-pending  { background: var(--s2);       color: var(--muted); border: 0.5px solid var(--b1); }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="top-bar">
+  <span class="top-bar-title">GAB — Events</span>
+  <button class="btn btn-primary btn-sm" id="new-btn" onclick="showCreate()">+ New</button>
+</div>
+
+<!-- Main page -->
+<div class="page">
+
+  <!-- Segment control -->
+  <div class="segment">
+    <div class="seg-btn active" onclick="switchSeg(this,'upcoming')">Upcoming</div>
+    <div class="seg-btn" onclick="switchSeg(this,'past')">Past</div>
+    <div class="seg-btn" onclick="switchSeg(this,'all')">All</div>
+  </div>
+
+  <!-- Events list -->
+  <div id="events-list"></div>
+</div>
+
+<!-- Create event sheet -->
+<div class="modal-overlay" id="create-sheet">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">New event</div>
+
+    <!-- Locked restaurant pill -->
+    <div class="locked-pill" id="locked-pill" style="display:none">
+      <span>🍴</span>
+      <span id="locked-name">Restaurant</span>
+      <span class="clear" onclick="clearRestaurant()">×</span>
+    </div>
+
+    <!-- Restaurant search -->
+    <div class="rest-search-wrap" id="rest-search-wrap">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input id="rest-search" type="text" placeholder="Search restaurant…" autocomplete="off" oninput="onRestSearch(this.value)">
+      </div>
+      <div class="rest-dropdown" id="rest-dropdown"></div>
+    </div>
+
+    <div class="form-group">
+      <label>Event name</label>
+      <input id="ev-name" type="text" placeholder="Dinner @ Ugly Baby">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="form-group">
+        <label>Date</label>
+        <input id="ev-date" type="date">
+      </div>
+      <div class="form-group">
+        <label>Time</label>
+        <input id="ev-time" type="time" value="20:00">
+      </div>
+    </div>
+
+    <!-- Vibe -->
+    <div class="form-group">
+      <label>Vibe</label>
+      <div class="pill-scroll" id="vibe-pills">
+        <span class="pill" data-vibe="Casual crew" onclick="toggleVibe(this)">Casual crew</span>
+        <span class="pill" data-vibe="Elevated" onclick="toggleVibe(this)">Elevated</span>
+        <span class="pill" data-vibe="Celebration" onclick="toggleVibe(this)">Celebration</span>
+        <span class="pill" data-vibe="Birthday" onclick="toggleVibe(this)">Birthday</span>
+        <span class="pill" data-vibe="Business" onclick="toggleVibe(this)">Business</span>
+      </div>
+    </div>
+
+    <!-- Guests -->
+    <div class="form-group">
+      <label>Guests</label>
+      <div class="search-bar">
+        <span class="search-icon">👤</span>
+        <input id="guest-search" type="text" placeholder="Add member…" autocomplete="off" oninput="onGuestSearch(this.value)">
+      </div>
+      <div style="position:relative">
+        <div class="rest-dropdown" id="guest-dropdown"></div>
+      </div>
+      <div class="guest-pills" id="guest-pills"></div>
+    </div>
+
+    <!-- Template -->
+    <div class="form-group">
+      <label>Invite template</label>
+      <div id="tmpl-list"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeSheet()">Cancel</button>
+      <button class="btn btn-coral" style="flex:2" id="send-btn" onclick="createAndSend()">Send invites</button>
+    </div>
+  </div>
+</div>
+
+<!-- Event detail sheet -->
+<div class="detail-sheet" id="detail-sheet" onclick="closeDetail(event)">
+  <div class="detail-body">
+    <div class="detail-handle" onclick="closeDetail({target:document.getElementById('detail-sheet')})"></div>
+    <div class="detail-title" id="d-title"></div>
+    <div class="detail-meta" id="d-meta"></div>
+    <div id="d-actions" style="display:flex;gap:8px;margin-bottom:16px"></div>
+    <div id="d-reminder" style="display:none;align-items:center;justify-content:space-between;background:var(--s2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px">
+      <span id="d-reminder-label" style="color:var(--muted)"></span>
+      <button id="d-reminder-btn" class="btn btn-outline btn-sm" style="display:none" onclick="sendReminderNow()">Send now</button>
+    </div>
+    <div class="section-head">Guest list</div>
+    <div id="d-guests"></div>
+  </div>
+</div>
+
+<!-- Bottom nav -->
+<nav class="bottom-nav">
+  <a href="/map.html" class="nav-item"><span class="nav-icon">🗺️</span><span>Discover</span></a>
+  <a href="/events.html" class="nav-item active"><span class="nav-icon">📅</span><span>Events</span></a>
+  <a href="/crm.html" class="nav-item"><span class="nav-icon">👥</span><span>Members</span></a>
+  <a href="/menus.html" class="nav-item"><span class="nav-icon">🍽️</span><span>Menus</span></a>
+</nav>
+
+<div class="ptr-indicator" id="ptr">↻</div>
+<div id="toast-stack"></div>
+<div id="toast"></div>
+
+<script>
+const get  = url => fetch(url).then(r=>r.json());
+const post = (url,d) => fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).then(r=>r.json());
+const patch= (url,d) => fetch(url,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).then(r=>r.json());
+
+function skeletonCards(n=4){
+  return Array.from({length:n},()=>`
+    <div class="skel-card" style="flex-direction:column;align-items:flex-start;gap:8px;padding:14px 16px">
+      <div class="skel skel-line-sm" style="width:35%"></div>
+      <div class="skel skel-line" style="width:60%"></div>
+      <div class="skel skel-line-sm" style="width:45%"></div>
+    </div>`).join("");
+}
+function toast(msg, type="") {
+  const stack = document.getElementById("toast-stack");
+  const el = document.createElement("div");
+  el.className = "toast-item" + (type ? " " + type : "");
+  el.textContent = msg;
+  stack.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("out");
+    setTimeout(() => el.remove(), 200);
+  }, 2800);
+}
+function fmt(dt){ const d=new Date(dt); return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"}); }
+function fmtTime(dt){ if(!dt)return""; const d=new Date(dt); return d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}); }
+function statusPill(s){
+  const map={draft:"Draft",confirmed:"Confirmed",completed:"Done",cancelled:"Cancelled"};
+  const cls={draft:"s-draft",confirmed:"s-confirmed",completed:"s-completed",cancelled:"s-cancelled"};
+  return `<span class="ev-status-pill ${cls[s]||"s-draft"}">${map[s]||s}</span>`;
+}
+
+let allRestaurants=[], allMembers=[], allTemplates=[];
+let selectedRestaurant=null, selectedGuests=[], selectedTemplate=null, selectedVibes=[];
+let currentSeg="upcoming";
+
+// ── Load events ──────────────────────────────────────────────────────────
+async function loadEvents(){
+  document.getElementById("events-list").innerHTML = skeletonCards(4);
+  try {
+    const evs = await get("/crm/events");
+    const now = Date.now();
+    let list = evs;
+    if(currentSeg==="upcoming") list=evs.filter(e=>new Date(e.scheduled_at)>=now && e.status!=="cancelled");
+    else if(currentSeg==="past")   list=evs.filter(e=>new Date(e.scheduled_at)<now || e.status==="completed");
+    renderEventList(list);
+  } catch(e){ toast("Could not load events","error"); }
+}
+
+const AV_COLORS = ["","teal","coral","","teal","coral"];
+function avatarStack(guests) {
+  if (!guests || !guests.length) return "";
+  const show = guests.slice(0, 3);
+  const rest = guests.length - show.length;
+  const avs = show.map((g, i) =>
+    `<div class="av ${AV_COLORS[i]}">${(g.name||"?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()}</div>`
+  ).join("");
+  const more = rest > 0 ? `<div class="av more">+${rest}</div>` : "";
+  return `<div class="avatar-stack">${avs}${more}</div>`;
+}
+
+function renderEventList(evs){
+  const el=document.getElementById("events-list");
+  if(!evs.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">📅</div><div class="empty-text" style="margin-bottom:14px">No events yet</div><button class="btn btn-primary btn-sm" onclick="showCreate()">Plan an event</button></div>`;
+    return;
+  }
+  el.innerHTML=evs.map(ev=>{
+    const accepted = ev.guests ? ev.guests.filter(g=>g.rsvp_status==="accepted").length : 0;
+    const total    = ev.guests ? ev.guests.length : 0;
+    const pct      = total ? Math.round(accepted/total*100) : 0;
+    return `<div class="swipe-wrap" data-id="${ev.id}">
+      <div class="swipe-action">🗑 Cancel</div>
+      <div class="swipe-item ev-card" onclick="openDetail(${ev.id})">
+        <div class="ev-card-head">
+          <div>
+            <div class="ev-card-date">${fmt(ev.scheduled_at)} · ${fmtTime(ev.scheduled_at)}</div>
+            <div class="ev-card-name">${ev.name}</div>
+            <div class="ev-card-loc">${ev.location||"Venue TBD"}</div>
+          </div>
+          ${statusPill(ev.status)}
+        </div>
+        ${total ? `<div class="ev-card-footer">
+          <div style="display:flex;align-items:center;gap:8px">
+            ${avatarStack(ev.guests)}
+            <span class="ev-card-guests">${accepted}/${total} going</span>
+          </div>
+          <div class="ev-progress"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div></div>
+        </div>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+  // Wire swipe-to-cancel
+  enableSwipeDelete(el, async wrap => {
+    const id = parseInt(wrap.dataset.id);
+    try { await patch(`/crm/events/${id}`, {status:"cancelled"}); wrap.remove(); toast("Cancelled","success"); }
+    catch(e) { wrap.style.transform=""; wrap.style.opacity=""; toast("Error","error"); loadEvents(); }
+  });
+}
+
+function switchSeg(btn,seg){
+  document.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active"); currentSeg=seg; loadEvents();
+}
+
+// ── Event detail ─────────────────────────────────────────────────────────
+async function openDetail(id){
+  try {
+    const ev = await get(`/crm/events/${id}`);
+    const guests = await get(`/crm/events/${id}/guests`);
+    document.getElementById("d-title").textContent = ev.name;
+    document.getElementById("d-meta").textContent = [fmt(ev.scheduled_at), fmtTime(ev.scheduled_at), ev.location].filter(Boolean).join(" · ");
+
+    // Reminder status
+    window._detailEventId = id;
+    const remRow = document.getElementById("d-reminder");
+    const remLabel = document.getElementById("d-reminder-label");
+    const remBtn = document.getElementById("d-reminder-btn");
+    const isUpcoming = ev.scheduled_at && new Date(ev.scheduled_at) > new Date();
+    remRow.style.display = "flex";
+    if (ev.reminder_sent) {
+      remLabel.innerHTML = `<span style="color:var(--green,#2E7D32)">✓ Reminder sent to guests</span>`;
+      remBtn.style.display = "none";
+    } else if (isUpcoming && (ev.status === "confirmed" || ev.status === "draft")) {
+      remLabel.textContent = "⏰ Reminder sends automatically 24h before";
+      remBtn.style.display = "";
+    } else {
+      remRow.style.display = "none";
+    }
+
+    // Actions
+    const actEl = document.getElementById("d-actions");
+    if(ev.status==="draft"){
+      actEl.innerHTML=`<button class="btn btn-coral btn-sm" onclick="sendInvites(${id})">Send invites (${guests.length})</button>
+        <button class="btn btn-outline btn-sm" onclick="markStatus(${id},'confirmed')">Mark confirmed</button>`;
+    } else if(ev.status==="confirmed"){
+      actEl.innerHTML=`<button class="btn btn-outline btn-sm" onclick="markStatus(${id},'completed')">Mark done</button>
+        <button class="btn btn-outline btn-sm" style="color:var(--coral-600)" onclick="markStatus(${id},'cancelled')">Cancel</button>`;
+    } else { actEl.innerHTML=""; }
+
+    // Guest list
+    const rsvpCls={accepted:"r-accepted",declined:"r-declined",pending:"r-pending"};
+    document.getElementById("d-guests").innerHTML = guests.length
+      ? guests.map(g=>`<div class="guest-table-row">
+          <div><div class="guest-name">${g.name}</div><div class="guest-sub">${g.email||""}</div></div>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${g.rsvp_token?`<button class="btn btn-outline btn-sm" onclick="copyRsvp('${g.rsvp_token}')">🔗 Copy</button>`:""}
+            <span class="rsvp-badge ${rsvpCls[g.rsvp_status]||'r-pending'}">${g.rsvp_status||"pending"}</span>
+          </div>
+        </div>`).join("")
+      : `<div style="color:var(--muted);font-size:13px;padding:12px 0">No guests yet</div>`;
+
+    document.getElementById("detail-sheet").classList.add("open");
+  } catch(e){ toast("Could not load event","error"); }
+}
+
+function closeDetail(e){
+  if(e.target===document.getElementById("detail-sheet")) document.getElementById("detail-sheet").classList.remove("open");
+}
+
+async function sendInvites(id){
+  try{
+    await post(`/crm/events/${id}/send-invites`,{});
+    toast("Invites sent!","success");
+    loadEvents();
+  }catch(e){toast("Could not send invites","error");}
+}
+
+async function markStatus(id,status){
+  try{
+    await patch(`/crm/events/${id}`,{status});
+    document.getElementById("detail-sheet").classList.remove("open");
+    toast("Updated!","success"); loadEvents();
+  }catch(e){toast("Error","error");}
+}
+
+async function sendReminderNow(){
+  const id = window._detailEventId;
+  if (!id) return;
+  const btn = document.getElementById("d-reminder-btn");
+  btn.disabled = true; btn.textContent = "Sending…";
+  try {
+    await fetch(`/reminders/run`, { method: "POST" });
+    document.getElementById("d-reminder-label").innerHTML = `<span style="color:var(--green,#2E7D32)">✓ Reminder sent to guests</span>`;
+    btn.style.display = "none";
+    toast("Reminders triggered!", "success");
+  } catch(e) {
+    btn.disabled = false; btn.textContent = "Send now";
+    toast("Could not send reminder", "error");
+  }
+}
+
+function copyRsvp(token){
+  const url=`${location.origin}/rsvp/${token}`;
+  navigator.clipboard.writeText(url).then(()=>toast("Link copied!","success")).catch(()=>toast(url));
+}
+
+// ── Create form ───────────────────────────────────────────────────────────
+async function showCreate(){
+  // Pre-fill from URL params
+  const p=new URLSearchParams(location.search);
+  if(p.get("restaurant_id")){
+    selectedRestaurant={id:parseInt(p.get("restaurant_id")),name:p.get("restaurant_name")||"Restaurant"};
+    setLockedRestaurant();
+  }
+  // Set default date to tomorrow
+  const tomorrow=new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+  document.getElementById("ev-date").value=tomorrow.toISOString().split("T")[0];
+
+  if(!allRestaurants.length) allRestaurants=await get("/restaurants?limit=200").catch(()=>[]);
+  if(!allMembers.length) allMembers=await get("/crm/contacts?type=member").catch(()=>[]);
+  if(!allTemplates.length) {
+    allTemplates=await get("/crm/templates").catch(()=>[]);
+    renderTemplates();
+  }
+  document.getElementById("create-sheet").classList.add("open");
+}
+
+function closeSheet(){ document.getElementById("create-sheet").classList.remove("open"); resetForm(); }
+
+function resetForm(){
+  selectedRestaurant=null; selectedGuests=[]; selectedTemplate=null; selectedVibes=[];
+  document.getElementById("rest-search").value="";
+  document.getElementById("ev-name").value="";
+  document.getElementById("guest-pills").innerHTML="";
+  document.getElementById("locked-pill").style.display="none";
+  document.getElementById("rest-search-wrap").style.display="";
+  document.querySelectorAll("#vibe-pills .pill").forEach(p=>p.classList.remove("on"));
+  document.querySelectorAll(".tmpl-card").forEach(c=>c.classList.remove("selected"));
+}
+
+function onRestSearch(val){
+  const drop=document.getElementById("rest-dropdown");
+  if(!val){drop.classList.remove("open");return;}
+  const hits=allRestaurants.filter(r=>r.name.toLowerCase().includes(val.toLowerCase())).slice(0,8);
+  drop.innerHTML=hits.map(r=>`<div class="drop-item" onclick="selectRestaurant(${r.id},'${r.name.replace(/'/g,"\\'")}')">
+    <span>${r.name}</span><span class="drop-item-sub">${r.neighborhood||r.borough||r.city||""}</span>
+  </div>`).join("");
+  drop.classList.toggle("open", hits.length>0);
+}
+
+function selectRestaurant(id,name){
+  selectedRestaurant={id,name};
+  document.getElementById("rest-dropdown").classList.remove("open");
+  document.getElementById("rest-search").value="";
+  setLockedRestaurant();
+  if(!document.getElementById("ev-name").value) document.getElementById("ev-name").value=`Dinner @ ${name}`;
+}
+
+function setLockedRestaurant(){
+  if(!selectedRestaurant) return;
+  document.getElementById("locked-name").textContent=selectedRestaurant.name;
+  document.getElementById("locked-pill").style.display="flex";
+  document.getElementById("rest-search-wrap").style.display="none";
+}
+
+function clearRestaurant(){
+  selectedRestaurant=null;
+  document.getElementById("locked-pill").style.display="none";
+  document.getElementById("rest-search-wrap").style.display="";
+}
+
+function onGuestSearch(val){
+  const drop=document.getElementById("guest-dropdown");
+  if(!val){drop.classList.remove("open");return;}
+  const existing=selectedGuests.map(g=>g.id);
+  const hits=allMembers.filter(m=>m.name.toLowerCase().includes(val.toLowerCase())&&!existing.includes(m.id)).slice(0,6);
+  drop.innerHTML=hits.map(m=>`<div class="drop-item" onclick="addGuest(${m.id},'${m.name.replace(/'/g,"\\'")}')">
+    <span>${m.name}</span><span class="drop-item-sub">${m.email||""}</span>
+  </div>`).join("");
+  drop.classList.toggle("open",hits.length>0);
+}
+
+function addGuest(id,name){
+  selectedGuests.push({id,name});
+  document.getElementById("guest-search").value="";
+  document.getElementById("guest-dropdown").classList.remove("open");
+  renderGuestPills();
+  updateSendBtn();
+}
+
+function removeGuest(id){
+  selectedGuests=selectedGuests.filter(g=>g.id!==id);
+  renderGuestPills(); updateSendBtn();
+}
+
+function renderGuestPills(){
+  document.getElementById("guest-pills").innerHTML=selectedGuests.map(g=>
+    `<span class="guest-pill">${g.name}<span class="rm" onclick="removeGuest(${g.id})">×</span></span>`
+  ).join("");
+}
+
+function toggleVibe(el){
+  el.classList.toggle("on");
+  const v=el.dataset.vibe;
+  if(el.classList.contains("on")) selectedVibes.push(v);
+  else selectedVibes=selectedVibes.filter(x=>x!==v);
+}
+
+function renderTemplates(){
+  document.getElementById("tmpl-list").innerHTML=
+    allTemplates.slice(0,4).map(t=>`<div class="tmpl-card" data-id="${t.id}" onclick="selectTmpl(this,${t.id})">
+      <div class="tmpl-card-name">${t.name}</div>
+      <div class="tmpl-card-sub">${t.subject||"Invite template"}</div>
+    </div>`).join("")
+    + `<div class="tmpl-card" onclick="selectTmpl(this,null)">
+      <div class="tmpl-card-name" style="color:var(--purple-600)">✦ Generate with AI</div>
+      <div class="tmpl-card-sub">Describe the vibe</div>
+    </div>`;
+}
+
+function selectTmpl(el,id){
+  document.querySelectorAll(".tmpl-card").forEach(c=>c.classList.remove("selected"));
+  el.classList.add("selected"); selectedTemplate=id;
+}
+
+function updateSendBtn(){
+  document.getElementById("send-btn").textContent=`Send invites (${selectedGuests.length})`;
+}
+
+async function createAndSend(){
+  const name=document.getElementById("ev-name").value.trim();
+  const date=document.getElementById("ev-date").value;
+  const time=document.getElementById("ev-time").value;
+  if(!name){toast("Add an event name","error");return;}
+  if(!date) {toast("Pick a date","error");return;}
+
+  const scheduled_at=new Date(`${date}T${time||"20:00"}`).toISOString();
+  const notes=selectedVibes.join(", ") || null;
+  const location=selectedRestaurant?.name||null;
+
+  try{
+    const ev=await post("/crm/events",{
+      name, scheduled_at, notes, location,
+      restaurant_id: selectedRestaurant?.id||null,
+      template_id: selectedTemplate||null
+    });
+    // Add guests
+    for(const g of selectedGuests){
+      await post(`/crm/events/${ev.id}/invite`,{contact_id:g.id}).catch(()=>{});
+    }
+    // Send if we have guests
+    if(selectedGuests.length){
+      await post(`/crm/events/${ev.id}/send-invites`,{}).catch(()=>{});
+    }
+    closeSheet();
+    toast(`Event created! ${selectedGuests.length?`Invites sent.`:""}`, "success");
+    loadEvents();
+  }catch(e){toast("Could not create event","error");}
+}
+
+// ── Swipe to delete helper ────────────────────────────────────────────────
+function enableSwipeDelete(containerEl, onDelete) {
+  containerEl.addEventListener("touchstart", e => {
+    const wrap = e.target.closest(".swipe-wrap");
+    if (!wrap) return;
+    const item = wrap.querySelector(".swipe-item");
+    const startX = e.touches[0].clientX;
+    let moved = false;
+    function onMove(ev) {
+      const dx = ev.touches[0].clientX - startX;
+      if (dx < -10) { moved = true; }
+      if (moved) {
+        const clamp = Math.max(-100, Math.min(0, dx));
+        item.style.transform = `translateX(${clamp}px)`;
+        wrap.classList.toggle("revealing", clamp < -40);
+      }
+    }
+    function onEnd(ev) {
+      wrap.removeEventListener("touchmove", onMove);
+      wrap.removeEventListener("touchend", onEnd);
+      const dx = ev.changedTouches[0].clientX - startX;
+      if (dx < -80) {
+        item.style.transform = "translateX(-100%)";
+        item.style.opacity = "0";
+        setTimeout(() => { onDelete(wrap); }, 250);
+      } else {
+        item.style.transform = "";
+        wrap.classList.remove("revealing");
+      }
+    }
+    wrap.addEventListener("touchmove", onMove, { passive: true });
+    wrap.addEventListener("touchend", onEnd);
+  }, { passive: true });
+}
+
+// ── Pull to refresh ───────────────────────────────────────────────────────
+(function(){
+  const ptr=document.getElementById("ptr");
+  let startY=0, pulling=false, threshold=72;
+  document.addEventListener("touchstart",e=>{
+    if(window.scrollY===0) { startY=e.touches[0].clientY; pulling=true; }
+  },{passive:true});
+  document.addEventListener("touchmove",e=>{
+    if(!pulling)return;
+    const dy=e.touches[0].clientY-startY;
+    if(dy>20) ptr.classList.add("visible");
+    if(dy>threshold) ptr.style.opacity="1";
+  },{passive:true});
+  document.addEventListener("touchend",e=>{
+    if(!pulling)return; pulling=false;
+    const dy=e.changedTouches[0].clientY-startY;
+    if(dy>threshold){ ptr.classList.add("spinning"); loadEvents().then(()=>{ ptr.classList.remove("spinning","visible"); }); }
+    else ptr.classList.remove("visible");
+  });
+})();
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    document.querySelectorAll(".modal-overlay.open, .detail-sheet.open").forEach(el => el.classList.remove("open"));
+  }
+  if (e.key === "n" && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
+    showCreate();
+  }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+loadEvents();
+// Pre-open create if coming from restaurants
+if(new URLSearchParams(location.search).get("restaurant_id")) showCreate();
+</script>
+
+<script>
+// ── Page transitions ─────────────────────────────────────────────────────
+document.body.style.opacity = '0';
+document.body.style.transition = 'opacity .15s ease';
+requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+document.querySelectorAll('.bottom-nav a').forEach(a => {
+  a.addEventListener('click', e => {
+    const href = a.getAttribute('href');
+    if (!href || href === location.pathname || href === '#') return;
+    e.preventDefault();
+    document.body.style.opacity = '0';
+    setTimeout(() => { location.href = href; }, 150);
+  });
+});
+</script>
+
+
+<script>
+// ── Haptic feedback ───────────────────────────────────────────────────────
+document.addEventListener('click', e => {
+  const target = e.target.closest('button, .btn, .pill, .rc, .contact-card, .ev-card, .menu-card, .nav-item');
+  if (target && navigator.vibrate) navigator.vibrate(8);
+}, { passive: true });
+</script>
+
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>

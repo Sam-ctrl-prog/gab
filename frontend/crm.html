@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GAB — Members</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#534AB7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="GAB">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+<style>
+  /* ── Contact card ── */
+  .contact-card {
+    background: var(--surface); border: 0.5px solid var(--b1);
+    border-radius: var(--r); padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer; margin-bottom: 6px;
+    transition: background .12s; -webkit-tap-highlight-color: transparent;
+  }
+  .contact-card:active { background: var(--s2); }
+  .contact-body { flex: 1; min-width: 0; }
+  .contact-name { font-size: 14px; font-weight: 500; color: var(--text); }
+  .contact-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .contact-events { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+
+  /* ── Detail sheet ── */
+  .detail-sheet {
+    position: fixed; inset: 0; z-index: 400;
+    background: rgba(0,0,0,.2); backdrop-filter: blur(2px);
+    display: none; align-items: flex-end;
+  }
+  .detail-sheet.open { display: flex; }
+  .detail-body {
+    background: var(--surface); border-radius: 20px 20px 0 0;
+    width: 100%; max-height: 92dvh; overflow-y: auto;
+    padding: 16px 16px calc(var(--bottom-nav-h) + 20px);
+    box-shadow: 0 -8px 40px rgba(0,0,0,.12);
+  }
+  .detail-handle { width: 36px; height: 4px; background: var(--b2); border-radius: 2px; margin: 0 auto 14px; cursor: pointer; }
+
+  .profile-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .profile-name { font-size: 18px; font-weight: 600; }
+  .profile-loc  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Outreach ── */
+  .outreach-row {
+    padding: 10px 0; border-bottom: 0.5px solid var(--b1);
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .outreach-row:last-child { border-bottom: none; }
+  .outreach-subj { font-size: 13px; font-weight: 500; color: var(--text); }
+  .outreach-meta { font-size: 11px; color: var(--muted); }
+
+  /* ── Add contact modal ── */
+  .type-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .type-pill {
+    padding: 6px 14px; border-radius: 20px; font-size: 12px;
+    border: 0.5px solid var(--b1); cursor: pointer; color: var(--dim);
+    background: var(--s2); transition: all .12s;
+  }
+  .type-pill.active { background: var(--purple-50); color: var(--purple-800); border-color: var(--purple-200); }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="top-bar">
+  <span class="top-bar-title">Members</span>
+  <button class="btn btn-primary btn-sm" onclick="openAddContact()">+ Add</button>
+</div>
+
+<!-- Page -->
+<div class="page">
+  <!-- Filter pills -->
+  <div class="pill-scroll" id="type-filter" style="margin-bottom:12px">
+    <span class="pill on" data-type="">All</span>
+    <span class="pill" data-type="member">Members</span>
+    <span class="pill" data-type="vendor">Vendors</span>
+    <span class="pill" data-type="restaurant">Restaurants</span>
+  </div>
+
+  <!-- Search -->
+  <div class="search-bar" style="margin-bottom:12px">
+    <span class="search-icon">🔍</span>
+    <input id="search-input" type="text" placeholder="Search by name…" oninput="filterContacts()">
+    <span class="kbd-hint">/</span>
+  </div>
+
+  <!-- List -->
+  <div id="contact-list"></div>
+</div>
+
+<!-- Detail sheet -->
+<div class="detail-sheet" id="detail-sheet" onclick="maybeClose(event)">
+  <div class="detail-body" id="detail-body">
+    <div class="detail-handle" onclick="document.getElementById('detail-sheet').classList.remove('open')"></div>
+
+    <div class="profile-head">
+      <div class="init-circle init-lg" id="d-init"></div>
+      <div>
+        <div class="profile-name" id="d-name"></div>
+        <div class="profile-loc"  id="d-loc"></div>
+      </div>
+      <span class="badge" id="d-badge" style="margin-left:auto"></span>
+    </div>
+
+    <div id="d-tags" class="pill-scroll" style="margin-bottom:12px"></div>
+
+    <div class="stat-row" id="d-stats" style="margin-bottom:14px">
+      <div class="stat-box"><div class="stat-num" id="d-events">—</div><div class="stat-lbl">events</div></div>
+      <div class="stat-box"><div class="stat-num" id="d-rests">—</div><div class="stat-lbl">restaurants</div></div>
+      <div class="stat-box"><div class="stat-num" id="d-picks">—</div><div class="stat-lbl">picks</div></div>
+    </div>
+
+    <div class="section-head">Recent picks</div>
+    <div id="d-recent-picks"></div>
+
+    <div class="section-head" style="margin-top:14px">Contact info</div>
+    <div id="d-info" class="info-block" style="background:var(--surface);border:0.5px solid var(--b1);border-radius:var(--r);overflow:hidden"></div>
+
+    <div class="section-head" style="margin-top:14px">Outreach history</div>
+    <div id="d-outreach"></div>
+
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-outline" style="flex:1" onclick="openEditContact()">Edit</button>
+      <button class="btn btn-primary" style="flex:2" id="d-send-btn">Send message</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add contact modal -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="add-modal-title">Add contact</div>
+    <div class="form-group">
+      <label>Type</label>
+      <div class="type-pills" id="add-type-pills">
+        <span class="type-pill active" data-t="member"   onclick="setType(this,'member')">Member</span>
+        <span class="type-pill" data-t="vendor"   onclick="setType(this,'vendor')">Vendor</span>
+        <span class="type-pill" data-t="restaurant" onclick="setType(this,'restaurant')">Restaurant</span>
+        <span class="type-pill" data-t="friend"   onclick="setType(this,'friend')">Friend</span>
+      </div>
+    </div>
+    <div class="form-group"><label>Name</label><input id="add-name" type="text" placeholder="Full name"></div>
+    <div class="form-group"><label>Email</label><input id="add-email" type="email" placeholder="email@example.com"></div>
+    <div class="form-group"><label>Phone</label><input id="add-phone" type="tel" placeholder="+1 (212)…"></div>
+    <div class="form-group"><label>Location</label><input id="add-loc" type="text" placeholder="Neighborhood or city"></div>
+    <div class="form-group"><label>Taste tags (comma separated)</label><input id="add-tags" type="text" placeholder="Natural wine, Omakase, Late night…"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('add-modal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" onclick="saveContact()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom nav -->
+<nav class="bottom-nav">
+  <a href="/map.html" class="nav-item"><span class="nav-icon">🗺️</span><span>Discover</span></a>
+  <a href="/events.html" class="nav-item"><span class="nav-icon">📅</span><span>Events</span></a>
+  <a href="/crm.html" class="nav-item active"><span class="nav-icon">👥</span><span>Members</span></a>
+  <a href="/menus.html" class="nav-item"><span class="nav-icon">🍽️</span><span>Menus</span></a>
+</nav>
+
+<div class="ptr-indicator" id="ptr">↻</div>
+<div id="toast-stack"></div>
+<div id="toast"></div>
+
+<script>
+const get  = url=>fetch(url).then(r=>r.json());
+const post = (url,d)=>fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).then(r=>r.json());
+const patch= (url,d)=>fetch(url,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).then(r=>r.json());
+
+function skeletonCards(n=6){
+  return Array.from({length:n},()=>`
+    <div class="skel-card">
+      <div class="skel skel-circle" style="width:40px;height:40px"></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+        <div class="skel skel-line" style="width:45%"></div>
+        <div class="skel skel-line-sm" style="width:70%"></div>
+      </div>
+    </div>`).join("");
+}
+function toast(msg, type="") {
+  const stack = document.getElementById("toast-stack");
+  const el = document.createElement("div");
+  el.className = "toast-item" + (type ? " " + type : "");
+  el.textContent = msg;
+  stack.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("out");
+    setTimeout(() => el.remove(), 200);
+  }, 2800);
+}
+function closeModal(id){document.getElementById(id).classList.remove("open");}
+function maybeClose(e){if(e.target===document.getElementById("detail-sheet"))document.getElementById("detail-sheet").classList.remove("open");}
+
+// ── Type colors ───────────────────────────────────────────────────────────
+function typeStyle(type){
+  const map={
+    member:   {bg:"var(--purple-50)",fg:"var(--purple-600)"},
+    vendor:   {bg:"var(--amber-50)", fg:"var(--amber-600)"},
+    restaurant:{bg:"var(--teal-50)",fg:"var(--teal-600)"},
+    friend:   {bg:"var(--blue-50)", fg:"var(--blue-600)"},
+  };
+  return map[type]||{bg:"var(--s2)",fg:"var(--dim)"};
+}
+function typeBadge(type){
+  const s=typeStyle(type);
+  return `<span class="badge" style="background:${s.bg};color:${s.fg}">${type||"contact"}</span>`;
+}
+function initials(name){ return (name||"?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(); }
+
+// ── State ──────────────────────────────────────────────────────────────────
+let allContacts=[], activeType="", editingId=null;
+
+// ── Load contacts ──────────────────────────────────────────────────────────
+async function loadContacts(){
+  document.getElementById("contact-list").innerHTML = skeletonCards(6);
+  try{
+    allContacts=await get("/crm/contacts");
+    updatePillCounts();
+    filterContacts();
+  }catch(e){toast("Could not load contacts","error");}
+}
+
+function filterContacts(){
+  const q=(document.getElementById("search-input").value||"").toLowerCase();
+  let list=allContacts;
+  if(activeType) list=list.filter(c=>c.type===activeType);
+  if(q) list=list.filter(c=>c.name.toLowerCase().includes(q));
+  renderContacts(list);
+}
+
+function updatePillCounts(){
+  const types=["member","vendor","restaurant","friend",""];
+  types.forEach(t=>{
+    const pill=document.querySelector(`#type-filter .pill[data-type="${t}"]`);
+    if(!pill)return;
+    const count=t?allContacts.filter(c=>c.type===t).length:allContacts.length;
+    const base=pill.dataset.label||(pill.dataset.label=pill.textContent.replace(/\s*\(\d+\)$/,""));
+    pill.textContent=`${base} (${count})`;
+  });
+}
+
+function renderContacts(contacts){
+  const el=document.getElementById("contact-list");
+  if(!contacts.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">👥</div><div class="empty-text" style="margin-bottom:14px">No contacts yet</div><button class="btn btn-primary btn-sm" onclick="openAddContact()">Add first member</button></div>`;
+    return;
+  }
+  el.innerHTML=contacts.map(c=>{
+    const s=typeStyle(c.type);
+    const tags=(c.tags||[]).slice(0,3).join(", ");
+    return `<div class="contact-card" onclick="openDetail(${c.id})">
+      <div class="init-circle" style="background:${s.bg};color:${s.fg}">${initials(c.name)}</div>
+      <div class="contact-body">
+        <div class="contact-name">${c.name}</div>
+        <div class="contact-meta">${[c.type, tags||c.location].filter(Boolean).join(" · ")}</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ── Type filter pills ──────────────────────────────────────────────────────
+document.getElementById("type-filter").addEventListener("click",e=>{
+  const pill=e.target.closest(".pill");
+  if(!pill)return;
+  document.querySelectorAll("#type-filter .pill").forEach(p=>p.classList.remove("on"));
+  pill.classList.add("on");
+  activeType=pill.dataset.type||"";
+  filterContacts();
+});
+
+// ── Detail sheet ───────────────────────────────────────────────────────────
+async function openDetail(id){
+  const c=allContacts.find(x=>x.id===id);
+  if(!c)return;
+  const s=typeStyle(c.type);
+
+  document.getElementById("d-init").style.background=s.bg;
+  document.getElementById("d-init").style.color=s.fg;
+  document.getElementById("d-init").textContent=initials(c.name);
+  document.getElementById("d-name").textContent=c.name;
+  document.getElementById("d-loc").textContent=c.location||"";
+  document.getElementById("d-badge").outerHTML=typeBadge(c.type).replace(/^<span/,`<span id="d-badge"`);
+
+  // Tags
+  const tagsEl=document.getElementById("d-tags");
+  const pillColors={member:"on",vendor:"amber",restaurant:"teal",friend:"blue"};
+  const pillClass=pillColors[c.type]||"";
+  tagsEl.innerHTML=(c.tags||[]).map(t=>`<span class="pill ${pillClass}">${t}</span>`).join("");
+
+  // Info
+  const infoEl=document.getElementById("d-info");
+  const rows=[];
+  if(c.email) rows.push(`<div class="form-row"><span class="form-lbl">Email</span><a href="mailto:${c.email}" class="form-val link">${c.email}</a></div>`);
+  if(c.phone) rows.push(`<div class="form-row"><span class="form-lbl">Phone</span><a href="tel:${c.phone}" class="form-val link">${c.phone}</a></div>`);
+  if(c.location) rows.push(`<div class="form-row"><span class="form-lbl">Location</span><span class="form-val">${c.location}</span></div>`);
+  infoEl.innerHTML=rows.join("")||`<div class="form-row"><span class="form-lbl" style="color:var(--muted)">No contact details</span></div>`;
+
+  // Send button
+  document.getElementById("d-send-btn").onclick = () => {
+    if(c.email) window.location.href=`mailto:${c.email}`;
+    else toast("No email on file","error");
+  };
+
+  document.getElementById("detail-sheet").classList.add("open");
+  loadDetailStats(id, c);
+}
+
+async function loadDetailStats(id, c){
+  try{
+    const recs=await get(`/crm/recommendations?contact_id=${id}`);
+    const picks=recs.length;
+    const rests=new Set(recs.map(r=>r.restaurant_id)).size;
+    document.getElementById("d-events").textContent="—";
+    document.getElementById("d-rests").textContent=rests;
+    document.getElementById("d-picks").textContent=picks;
+
+    // Recent picks
+    if(picks>0){
+      const names={};
+      const recent=recs.slice(0,3);
+      for(const r of recent){
+        try{ const rest=await get(`/restaurants/${r.restaurant_id}`); names[r.restaurant_id]=rest.name; }catch(e){}
+      }
+      document.getElementById("d-recent-picks").innerHTML=recent.map(r=>`<div class="rc" style="cursor:default">
+        <div class="ic ic-teal ic-sm">🍴</div>
+        <div class="rc-body">
+          <div class="rc-name">${names[r.restaurant_id]||"Restaurant"}</div>
+          <div class="rc-meta">${r.notes||"No notes"}</div>
+        </div>
+        <div class="rc-right" style="color:var(--purple-600)">${r.rating}</div>
+      </div>`).join("");
+    } else {
+      document.getElementById("d-recent-picks").innerHTML=`<div style="color:var(--muted);font-size:13px;padding:8px 0">No picks yet</div>`;
+    }
+  }catch(e){}
+
+  // Outreach log
+  try{
+    const log=await get(`/crm/outreach-log?contact_id=${id}&limit=5`);
+    if(log.length){
+      document.getElementById("d-outreach").innerHTML=log.map(o=>`<div class="outreach-row">
+        <div class="outreach-subj">${o.subject||"Message"}</div>
+        <div class="outreach-meta">${o.status} · ${new Date(o.sent_at||o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
+      </div>`).join("");
+    } else {
+      document.getElementById("d-outreach").innerHTML=`<div style="color:var(--muted);font-size:13px;padding:8px 0">No messages yet</div>`;
+    }
+  }catch(e){}
+}
+
+// ── Add contact ────────────────────────────────────────────────────────────
+let addType="member";
+function openAddContact(){
+  editingId=null;
+  document.getElementById("add-modal-title").textContent="Add contact";
+  document.getElementById("add-name").value="";
+  document.getElementById("add-email").value="";
+  document.getElementById("add-phone").value="";
+  document.getElementById("add-loc").value="";
+  document.getElementById("add-tags").value="";
+  document.getElementById("add-modal").classList.add("open");
+}
+
+function openEditContact(){
+  const contact=allContacts.find(c=>c.id===editingId) || allContacts.find(c=>document.getElementById("d-name").textContent===c.name);
+  if(!contact)return;
+  editingId=contact.id;
+  document.getElementById("add-modal-title").textContent="Edit contact";
+  document.getElementById("add-name").value=contact.name||"";
+  document.getElementById("add-email").value=contact.email||"";
+  document.getElementById("add-phone").value=contact.phone||"";
+  document.getElementById("add-loc").value=contact.location||"";
+  document.getElementById("add-tags").value=(contact.tags||[]).join(", ");
+  setType(document.querySelector(`.type-pill[data-t="${contact.type}"]`)||document.querySelector(".type-pill"),contact.type);
+  document.getElementById("detail-sheet").classList.remove("open");
+  document.getElementById("add-modal").classList.add("open");
+}
+
+function setType(el,t){
+  addType=t;
+  document.querySelectorAll(".type-pill").forEach(p=>p.classList.remove("active"));
+  if(el) el.classList.add("active");
+}
+
+async function saveContact(){
+  const name=document.getElementById("add-name").value.trim();
+  if(!name){toast("Name required","error");return;}
+  const tags=document.getElementById("add-tags").value.split(",").map(t=>t.trim()).filter(Boolean);
+  const data={
+    name,
+    type: addType,
+    email: document.getElementById("add-email").value.trim()||null,
+    phone: document.getElementById("add-phone").value.trim()||null,
+    location: document.getElementById("add-loc").value.trim()||null,
+    tags
+  };
+  try{
+    if(editingId){
+      const updated=await patch(`/crm/contacts/${editingId}`,data);
+      const idx=allContacts.findIndex(c=>c.id===editingId);
+      if(idx>=0)allContacts[idx]=updated;
+      toast("Saved!","success");
+    } else {
+      const created=await post("/crm/contacts",data);
+      allContacts.unshift(created);
+      toast("Contact added!","success");
+    }
+    closeModal("add-modal");
+    filterContacts();
+  }catch(e){toast("Could not save","error");}
+}
+
+// ── Pull to refresh ───────────────────────────────────────────────────────
+(function(){
+  const ptr=document.getElementById("ptr");
+  let startY=0, pulling=false, threshold=72;
+  document.addEventListener("touchstart",e=>{
+    if(window.scrollY===0){startY=e.touches[0].clientY;pulling=true;}
+  },{passive:true});
+  document.addEventListener("touchmove",e=>{
+    if(!pulling)return;
+    if(e.touches[0].clientY-startY>20)ptr.classList.add("visible");
+  },{passive:true});
+  document.addEventListener("touchend",e=>{
+    if(!pulling)return;pulling=false;
+    const dy=e.changedTouches[0].clientY-startY;
+    if(dy>threshold){ptr.classList.add("spinning");loadContacts().then(()=>ptr.classList.remove("spinning","visible"));}
+    else ptr.classList.remove("visible");
+  });
+})();
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────
+document.addEventListener("keydown", e => {
+  // / → focus search
+  if (e.key === "/" && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
+    e.preventDefault();
+    document.getElementById("search-input").focus();
+  }
+  // Esc → close any open modal/sheet
+  if (e.key === "Escape") {
+    document.querySelectorAll(".modal-overlay.open, .detail-sheet.open").forEach(el => el.classList.remove("open"));
+  }
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadContacts();
+</script>
+
+<script>
+// ── Page transitions ─────────────────────────────────────────────────────
+document.body.style.opacity = '0';
+document.body.style.transition = 'opacity .15s ease';
+requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+document.querySelectorAll('.bottom-nav a').forEach(a => {
+  a.addEventListener('click', e => {
+    const href = a.getAttribute('href');
+    if (!href || href === location.pathname || href === '#') return;
+    e.preventDefault();
+    document.body.style.opacity = '0';
+    setTimeout(() => { location.href = href; }, 150);
+  });
+});
+</script>
+
+
+<script>
+// ── Haptic feedback ───────────────────────────────────────────────────────
+document.addEventListener('click', e => {
+  const target = e.target.closest('button, .btn, .pill, .rc, .contact-card, .ev-card, .menu-card, .nav-item');
+  if (target && navigator.vibrate) navigator.vibrate(8);
+}, { passive: true });
+</script>
+
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>

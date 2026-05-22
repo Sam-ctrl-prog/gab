@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GAB — Restaurant</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#534AB7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="GAB">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { font-family: 'DM Sans', system-ui, sans-serif; background: #F0EEE9; }
+
+  /* ── Hero ── */
+  .hero {
+    height: 180px; overflow: hidden; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 64px; flex-shrink: 0;
+  }
+  .hero img { width:100%; height:100%; object-fit:cover; position:absolute; inset:0; }
+  .hero-emoji-wrap {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+  }
+
+  /* ── Page content ── */
+  .pc {
+    padding: 14px 16px;
+    padding-bottom: calc(var(--bottom-nav-h) + 80px);
+    background: #fff;
+    min-height: 100vh;
+  }
+
+  /* ── Top bar (back + photo) ── */
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .back-btn {
+    font-size: 13px; color: #378ADD; font-weight: 500;
+    display: flex; align-items: center; gap: 4px;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .photo-btn {
+    font-size: 12px; color: #888780; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── Name / meta ── */
+  .rname { font-size: 20px; font-weight: 600; color: #1A1A18; margin-bottom: 3px; line-height: 1.2; letter-spacing: -0.3px; }
+  .rmeta { font-size: 12px; color: #888780; margin-bottom: 10px; line-height: 1.5; }
+
+  /* ── Pills ── */
+  .pill-row { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 14px; }
+  .pill-r {
+    font-size: 11px; padding: 4px 10px; border-radius: 20px;
+    border: 0.5px solid rgba(0,0,0,0.12); color: #888780;
+    background: #F1EFE8; white-space: nowrap; font-weight: 500;
+  }
+  .pill-r.purple { background: #EEEDFE; color: #3C3489; border-color: #AFA9EC; }
+  .pill-r.teal   { background: #E1F5EE; color: #0F6E56; border-color: #5DCAA5; }
+  .pill-r.amber  { background: #FAEEDA; color: #633806; border-color: #EF9F27; }
+  .pill-r.coral  { background: #FAECE7; color: #993C1D; border-color: #F0997B; }
+
+  /* ── Section label ── */
+  .sec-lbl {
+    font-size: 10px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: #9A9890;
+    margin: 16px 0 8px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .ai-badge {
+    font-size: 9px; padding: 2px 8px; border-radius: 20px;
+    background: #EEEDFE; color: #3C3489; font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  /* ── Crew card ── */
+  .crew-card {
+    background: #F1EFE8; border-radius: 10px;
+    padding: 12px; margin-bottom: 8px;
+  }
+  .crew-quote {
+    font-size: 12px; color: #5F5E5A; line-height: 1.65;
+    font-style: italic; margin-bottom: 7px;
+  }
+  .crew-footer { display: flex; align-items: center; justify-content: space-between; }
+  .crew-attr { font-size: 10px; color: #9A9890; }
+  .crew-score {
+    font-size: 11px; font-weight: 600; padding: 2px 9px;
+    border-radius: 20px; background: #fff;
+    border: 0.5px solid rgba(0,0,0,0.1); color: #534AB7;
+  }
+  .crew-score.hi { background: #E6F4EA; color: #2E7D32; border-color: #A5D6A7; }
+  .crew-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+  .crew-tag { font-size: 10px; padding: 2px 8px; border-radius: 20px; background: #fff; color: #5F5E5A; border: 0.5px solid rgba(0,0,0,0.08); }
+
+  /* ── Menu chips ── */
+  .menu-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 4px; }
+  .menu-chip {
+    font-size: 11px; padding: 4px 11px; border-radius: 20px;
+    background: #F1EFE8; border: 0.5px solid rgba(0,0,0,0.08);
+    color: #5F5E5A; font-weight: 500;
+  }
+
+  /* ── Divider ── */
+  .divider { border: none; border-top: 0.5px solid rgba(0,0,0,0.08); margin: 14px 0; }
+
+  /* ── Detail rows (plain, border-bottom only) ── */
+  .detail-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 0; border-bottom: 0.5px solid rgba(0,0,0,0.08);
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .dlbl { font-size: 11px; color: #9A9890; }
+  .dval { font-size: 12px; color: #1A1A18; font-weight: 500; text-align: right; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dval.link { color: #185FA5; }
+
+  /* ── Button row ── */
+  .btn-row {
+    display: grid; grid-template-columns: 1fr 2fr;
+    gap: 8px; margin-top: 14px;
+  }
+  .btn-pick {
+    padding: 12px; border-radius: 10px;
+    border: 0.5px solid rgba(0,0,0,0.15); background: #fff;
+    font-size: 13px; font-weight: 500; color: #1A1A18;
+    text-align: center; cursor: pointer; font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-pick:active { background: #F1EFE8; }
+  .btn-event {
+    padding: 12px; border-radius: 10px;
+    background: #7F77DD; color: #fff;
+    font-size: 13px; font-weight: 500;
+    text-align: center; cursor: pointer; border: none; font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-event:active { background: #534AB7; }
+
+  /* ── Similar spots ── */
+  .sim-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0; border-bottom: 0.5px solid rgba(0,0,0,0.06);
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .sim-row:last-child { border-bottom: none; }
+  .sim-row:active { opacity: .7; }
+  .sim-emoji {
+    font-size: 18px; width: 32px; height: 32px; background: #FDF5EC;
+    border-radius: 7px; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .sim-name { font-size: 12px; font-weight: 500; color: #1A1A18; }
+  .sim-meta { font-size: 10px; color: #9A9890; margin-top: 1px; }
+
+  /* ── Score buttons in modal ── */
+  .star-row { display: flex; gap: 5px; margin: 8px 0; flex-wrap: wrap; }
+  .score-btn {
+    flex: 1; min-width: 32px; height: 36px; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    background: #F1EFE8; color: #5F5E5A;
+    border: 0.5px solid rgba(0,0,0,0.1); cursor: pointer;
+    transition: all .12s; font-family: inherit;
+  }
+  .score-btn.active { background: #534AB7; color: #fff; border-color: #534AB7; }
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero" id="hero" style="background:#FDF5EC">
+  <img id="hero-img" src="" alt="" style="display:none" onerror="this.style.display='none'">
+  <div class="hero-emoji-wrap"><span id="hero-emoji">🍴</span></div>
+</div>
+
+<!-- Page content -->
+<div class="pc">
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="back-btn" onclick="history.back()">← back</div>
+    <div class="photo-btn" onclick="openPhotoModal()">📷</div>
+  </div>
+
+  <!-- Name + meta -->
+  <div id="rest-name" class="rname">Loading…</div>
+  <div id="rest-sub"  class="rmeta"></div>
+  <div id="rest-pills" class="pill-row"></div>
+
+  <!-- Crew says -->
+  <div class="sec-lbl" id="crew-head" style="display:none">Crew says</div>
+  <div id="crew-notes"></div>
+
+  <!-- Menu highlights -->
+  <div class="sec-lbl" id="menu-head" style="display:none">
+    Menu highlights <span class="ai-badge">✦ AI extracted</span>
+  </div>
+  <div id="menu-chips" class="menu-chips"></div>
+
+  <!-- Divider + Details -->
+  <div class="divider" id="details-divider"></div>
+  <div id="info-block"></div>
+
+  <!-- CTA buttons -->
+  <div class="btn-row">
+    <button class="btn-pick" onclick="openAddPick()">+ My pick</button>
+    <button class="btn-event" id="add-event-btn">Add to event →</button>
+  </div>
+
+  <!-- Similar spots -->
+  <div class="sec-lbl" id="similar-head" style="display:none;margin-top:20px">Similar spots</div>
+  <div id="similar-list"></div>
+</div>
+
+<!-- Bottom nav -->
+<nav class="bottom-nav">
+  <a href="/map.html" class="nav-item">
+    <span class="nav-icon">🗺️</span><span>Discover</span>
+  </a>
+  <a href="/events.html" class="nav-item">
+    <span class="nav-icon">📅</span><span>Events</span>
+  </a>
+  <a href="/crm.html" class="nav-item">
+    <span class="nav-icon">👥</span><span>Members</span>
+  </a>
+  <a href="/menus.html" class="nav-item">
+    <span class="nav-icon">🍽️</span><span>Menus</span>
+  </a>
+</nav>
+
+<!-- Photo modal -->
+<div class="modal-overlay" id="photo-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Restaurant photo</div>
+    <div id="photo-preview" style="height:140px;background:#F1EFE8;border-radius:10px;margin-bottom:14px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:36px">🍴</div>
+    <div class="form-group">
+      <label>Photo URL</label>
+      <input id="photo-url-input" type="url" placeholder="https://… paste an image URL" oninput="updatePhotoPreview()">
+    </div>
+    <div style="font-size:11px;color:#9A9890;margin-bottom:12px">Right-click any photo online → "Copy image address"</div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('photo-modal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" onclick="savePhoto()">Save photo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add pick modal -->
+<div class="modal-overlay" id="pick-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Log your pick</div>
+    <div class="form-group">
+      <label>Member</label>
+      <select id="pick-contact"><option value="">Select member…</option></select>
+    </div>
+    <div class="form-group">
+      <label>Score / 10</label>
+      <div class="star-row" id="score-row">
+        <button class="score-btn" data-v="4">4</button>
+        <button class="score-btn" data-v="5">5</button>
+        <button class="score-btn" data-v="6">6</button>
+        <button class="score-btn" data-v="7">7</button>
+        <button class="score-btn" data-v="8">8</button>
+        <button class="score-btn" data-v="9">9</button>
+        <button class="score-btn" data-v="10">10</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea id="pick-notes" rows="3" placeholder="What to order, what to avoid, vibe…"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Tags (comma separated)</label>
+      <input id="pick-tags" type="text" placeholder="date-night, cash only, spicy…">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('pick-modal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" onclick="submitPick()">Save pick</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-stack"></div>
+<div id="toast"></div>
+
+<script>
+const get  = url  => fetch(url).then(r => r.json());
+const post = (url, data) => fetch(url, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}).then(r=>r.json());
+
+function toast(msg, type="") {
+  const stack = document.getElementById("toast-stack");
+  const el = document.createElement("div");
+  el.className = "toast-item" + (type ? " "+type : "");
+  el.textContent = msg;
+  stack.appendChild(el);
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 200); }, 2800);
+}
+function priceStr(p) { return p ? "$".repeat(p) : ""; }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+function timeAgo(iso) {
+  if (!iso) return "";
+  const d = Math.floor((Date.now() - new Date(iso)) / 86400000);
+  if (d < 1) return "today";
+  if (d < 7) return `${d}d ago`;
+  if (d < 30) return `${Math.floor(d/7)}w ago`;
+  return `${Math.floor(d/30)}mo ago`;
+}
+
+const CUISINE_THEMES = {
+  thai:          { emoji:"🌶️", bg:"linear-gradient(135deg,#FAECE7,#FAEEDA)" },
+  italian:       { emoji:"🍝", bg:"linear-gradient(135deg,#FAEEDA,#FAECE7)" },
+  japanese:      { emoji:"🍣", bg:"linear-gradient(135deg,#E6F1FB,#FBEAF0)" },
+  chinese:       { emoji:"🥟", bg:"linear-gradient(135deg,#FAECE7,#FBEAF0)" },
+  mexican:       { emoji:"🌮", bg:"linear-gradient(135deg,#FAEEDA,#E1F5EE)" },
+  french:        { emoji:"🥐", bg:"linear-gradient(135deg,#FAEEDA,#F7F6F3)" },
+  american:      { emoji:"🍔", bg:"linear-gradient(135deg,#E6F1FB,#FAEEDA)" },
+  seafood:       { emoji:"🦞", bg:"linear-gradient(135deg,#E6F1FB,#E1F5EE)" },
+  pizza:         { emoji:"🍕", bg:"linear-gradient(135deg,#FAECE7,#FAEEDA)" },
+  indian:        { emoji:"🍛", bg:"linear-gradient(135deg,#FAEEDA,#FAECE7)" },
+  mediterranean: { emoji:"🫙", bg:"linear-gradient(135deg,#E1F5EE,#E6F1FB)" },
+  korean:        { emoji:"🥩", bg:"linear-gradient(135deg,#FBEAF0,#FAECE7)" },
+  vietnamese:    { emoji:"🍜", bg:"linear-gradient(135deg,#E1F5EE,#FAEEDA)" },
+  bar:           { emoji:"🍸", bg:"linear-gradient(135deg,#EEEDFE,#FBEAF0)" },
+};
+const CUISINE_EMOJI = Object.fromEntries(Object.entries(CUISINE_THEMES).map(([k,v])=>[k,v.emoji]));
+
+function getCuisineTheme(raw) {
+  const c = (raw||"").toLowerCase();
+  for (const [k,v] of Object.entries(CUISINE_THEMES)) if (c.includes(k)) return v;
+  return { emoji:"🍴", bg:"linear-gradient(135deg,#EEEDFE,#E6F1FB)" };
+}
+function getCuisineEmoji(raw) {
+  const c = (raw||"").toLowerCase();
+  for (const [k,v] of Object.entries(CUISINE_EMOJI)) if (c.includes(k)) return v;
+  return "🍴";
+}
+
+function skeletonContent() {
+  return `<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+    <div class="skel" style="height:24px;width:55%;border-radius:8px"></div>
+    <div class="skel" style="height:13px;width:75%;border-radius:6px"></div>
+    <div style="display:flex;gap:6px">
+      <div class="skel" style="height:24px;width:90px;border-radius:20px"></div>
+      <div class="skel" style="height:24px;width:70px;border-radius:20px"></div>
+    </div>
+  </div>
+  <div class="skel" style="height:80px;border-radius:10px;margin-bottom:10px"></div>
+  <div class="skel" style="height:13px;width:90%;border-radius:6px;margin-bottom:7px"></div>
+  <div class="skel" style="height:13px;width:70%;border-radius:6px"></div>`;
+}
+
+const params  = new URLSearchParams(location.search);
+const restId  = parseInt(params.get("id"));
+let selectedScore = null;
+let restData  = null;
+
+document.getElementById("score-row").addEventListener("click", e => {
+  const btn = e.target.closest(".score-btn");
+  if (!btn) return;
+  document.querySelectorAll(".score-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  selectedScore = parseInt(btn.dataset.v);
+});
+
+// ── Load restaurant ─────────────────────────────────────────────────────────
+async function loadRestaurant() {
+  if (!restId || isNaN(restId)) {
+    document.getElementById("rest-name").textContent = "No restaurant selected";
+    return;
+  }
+  const content = document.querySelector(".pc");
+  const savedHTML = content.innerHTML;
+  // Show skeleton in place of name/sub/pills area only
+  const nameEl = document.getElementById("rest-name");
+  const origName = nameEl.innerHTML;
+  nameEl.innerHTML = '<div class="skel" style="height:24px;width:55%;border-radius:8px;display:inline-block"></div>';
+  try {
+    const resp = await fetch(`/restaurants/${restId}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    restData = await resp.json();
+    nameEl.innerHTML = origName;
+    renderDetails(restData);
+    loadPicks();
+    loadMenuHighlights();
+    loadSimilar(restData);
+  } catch(e) {
+    nameEl.textContent = "Restaurant not found";
+    document.getElementById("rest-sub").textContent = "Link may be invalid.";
+  }
+}
+
+function renderDetails(r) {
+  const theme = getCuisineTheme(r.cuisine_raw);
+
+  // Hero
+  const heroEl  = document.getElementById("hero");
+  const heroImg = document.getElementById("hero-img");
+  const emojiWrap = document.querySelector(".hero-emoji-wrap");
+  document.getElementById("hero-emoji").textContent = theme.emoji;
+  if (r.photo_url) {
+    heroImg.src = r.photo_url;
+    heroImg.style.display = "";
+    emojiWrap.style.display = "none";
+    heroEl.style.background = "#000";
+  } else {
+    heroEl.style.background = theme.bg;
+    heroImg.style.display = "none";
+    emojiWrap.style.display = "";
+  }
+
+  document.title = `GAB — ${r.name || "Restaurant"}`;
+  document.getElementById("rest-name").textContent = r.name || "Unnamed";
+
+  // Meta line: Neighborhood · Cuisine · Price
+  const meta = [r.neighborhood || r.borough, r.cuisine_raw, priceStr(r.price_level)].filter(Boolean).join(" · ");
+  document.getElementById("rest-sub").textContent = meta;
+
+  // Pills
+  const pills = [];
+  if (r.cuisine_raw) pills.push(`<span class="pill-r teal">✦ ${r.cuisine_raw}</span>`);
+  if (r.borough)     pills.push(`<span class="pill-r">${r.borough}</span>`);
+  if (r.price_level) pills.push(`<span class="pill-r amber">${priceStr(r.price_level)}</span>`);
+  if (r.notes)       pills.push(`<span class="pill-r coral">${r.notes}</span>`);
+  document.getElementById("rest-pills").innerHTML = pills.join("");
+
+  // Detail rows — phone, website, address only (no source)
+  const rows = [];
+  if (r.phone)   rows.push(`<div class="detail-row"><span class="dlbl">Phone</span><a href="tel:${r.phone}" class="dval link">${r.phone}</a></div>`);
+  if (r.website) rows.push(`<div class="detail-row"><span class="dlbl">Website</span><a href="${r.website}" target="_blank" class="dval link">${r.website.replace(/^https?:\/\//,"")}</a></div>`);
+  if (r.address) rows.push(`<div class="detail-row"><span class="dlbl">Address</span><span class="dval">${r.address}</span></div>`);
+  if (r.rating)  rows.push(`<div class="detail-row"><span class="dlbl">Google rating</span><span class="dval">${r.rating} ★</span></div>`);
+  document.getElementById("info-block").innerHTML = rows.join("") ||
+    `<div class="detail-row"><span class="dlbl" style="color:#C4BDD8">No details on file yet</span></div>`;
+
+  document.getElementById("add-event-btn").onclick = () =>
+    window.location.href = `/events.html?restaurant_id=${r.id}&restaurant_name=${encodeURIComponent(r.name)}`;
+}
+
+// ── Crew picks ──────────────────────────────────────────────────────────────
+async function loadPicks() {
+  try {
+    const picks = await get(`/map/restaurant/${restId}/picks`);
+    if (!picks.length) return;
+    document.getElementById("crew-head").style.display = "";
+    document.getElementById("crew-notes").innerHTML = picks.slice(0, 4).map(pick => {
+      const tagPills = (pick.tags||[]).map(t => `<span class="crew-tag">${t}</span>`).join("");
+      const scoreClass = (pick.rating||0) >= 8 ? "hi" : "";
+      const ago = pick.visited_at ? timeAgo(pick.visited_at) : "";
+      return `<div class="crew-card">
+        ${pick.notes ? `<div class="crew-quote">"${pick.notes}"</div>` : ""}
+        <div class="crew-footer">
+          <span class="crew-attr">— ${pick.member_name}${ago ? ` · ${ago}` : ""}</span>
+          <span class="crew-score ${scoreClass}">${pick.rating}/10</span>
+        </div>
+        ${tagPills ? `<div class="crew-tags">${tagPills}</div>` : ""}
+      </div>`;
+    }).join("");
+  } catch(e) {}
+}
+
+// ── Menu highlights ─────────────────────────────────────────────────────────
+async function loadMenuHighlights() {
+  try {
+    const menus = await get(`/menus/restaurant/${restId}`);
+    if (!menus.length) return;
+    const menu  = await get(`/menus/${menus[0].id}`);
+    const items = (menu.items || []).slice(0, 8);
+    if (!items.length) return;
+    document.getElementById("menu-head").style.display = "";
+    document.getElementById("menu-chips").innerHTML = items.map(i =>
+      `<span class="menu-chip">${i.name}</span>`
+    ).join("");
+  } catch(e) {}
+}
+
+// ── Similar spots ────────────────────────────────────────────────────────────
+async function loadSimilar(r) {
+  if (!r.cuisine_raw && !r.borough) return;
+  try {
+    const p = new URLSearchParams({ limit: 8 });
+    if (r.cuisine_raw) p.set("search", r.cuisine_raw.split(",")[0].trim());
+    if (r.borough)     p.set("borough", r.borough);
+    const results = await get(`/restaurants?${p}`);
+    const others  = results.filter(x => x.id !== r.id).slice(0, 5);
+    if (!others.length) return;
+    document.getElementById("similar-head").style.display = "";
+    document.getElementById("similar-list").innerHTML = others.map(s =>
+      `<div class="sim-row" onclick="window.location.href='/restaurants.html?id=${s.id}'">
+        <div class="sim-emoji">${getCuisineEmoji(s.cuisine_raw)}</div>
+        <div>
+          <div class="sim-name">${s.name}</div>
+          <div class="sim-meta">${[s.neighborhood||s.borough, s.cuisine_raw].filter(Boolean).join(" · ")}</div>
+        </div>
+      </div>`
+    ).join("");
+  } catch(e) {}
+}
+
+// ── Add pick modal ───────────────────────────────────────────────────────────
+async function openAddPick() {
+  try {
+    const contacts = await get("/crm/contacts?type=member");
+    const sel = document.getElementById("pick-contact");
+    sel.innerHTML = '<option value="">Select member…</option>';
+    contacts.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.id; opt.textContent = c.name;
+      sel.appendChild(opt);
+    });
+  } catch(e) {}
+  document.getElementById("pick-modal").classList.add("open");
+}
+
+async function submitPick() {
+  const contactId = document.getElementById("pick-contact").value;
+  const notes  = document.getElementById("pick-notes").value.trim();
+  const rawTags = document.getElementById("pick-tags").value;
+  const tags   = rawTags ? rawTags.split(",").map(t=>t.trim()).filter(Boolean) : [];
+  if (!selectedScore) { toast("Pick a score first","error"); return; }
+  try {
+    await post("/crm/recommendations", {
+      contact_id: parseInt(contactId) || null,
+      restaurant_id: restId, rating: selectedScore,
+      notes: notes || null, tags
+    });
+    closeModal("pick-modal");
+    toast("Pick saved!", "success");
+    loadPicks();
+  } catch(e) { toast("Could not save pick","error"); }
+}
+
+// ── Photo modal ──────────────────────────────────────────────────────────────
+function openPhotoModal() {
+  const heroImg = document.getElementById("hero-img");
+  const input   = document.getElementById("photo-url-input");
+  input.value   = heroImg.src && heroImg.style.display !== "none" ? heroImg.src : "";
+  updatePhotoPreview();
+  document.getElementById("photo-modal").classList.add("open");
+}
+function updatePhotoPreview() {
+  const val  = document.getElementById("photo-url-input").value.trim();
+  const prev = document.getElementById("photo-preview");
+  prev.innerHTML = val
+    ? `<img src="${val}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent='Invalid URL'">`
+    : "🍴";
+}
+async function savePhoto() {
+  const val = document.getElementById("photo-url-input").value.trim();
+  try {
+    await fetch(`/restaurants/${restId}`, {
+      method:"PATCH", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ photo_url: val || null })
+    });
+    closeModal("photo-modal");
+    toast("Photo saved!", "success");
+    const heroImg   = document.getElementById("hero-img");
+    const emojiWrap = document.querySelector(".hero-emoji-wrap");
+    const heroEl    = document.getElementById("hero");
+    if (val) {
+      heroImg.src = val; heroImg.style.display = "";
+      emojiWrap.style.display = "none"; heroEl.style.background = "#000";
+    } else {
+      heroImg.style.display = "none"; emojiWrap.style.display = "";
+    }
+  } catch(e) { toast("Could not save photo","error"); }
+}
+
+loadRestaurant();
+</script>
+
+<script>
+document.body.style.opacity = '0';
+document.body.style.transition = 'opacity .15s ease';
+requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+document.querySelectorAll('.bottom-nav a').forEach(a => {
+  a.addEventListener('click', e => {
+    const href = a.getAttribute('href');
+    if (!href || href === location.pathname || href === '#') return;
+    e.preventDefault();
+    document.body.style.opacity = '0';
+    setTimeout(() => { location.href = href; }, 150);
+  });
+});
+</script>
+
+<script>
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, .btn-pick, .btn-event, .sim-row, .nav-item, .back-btn');
+  if (t && navigator.vibrate) navigator.vibrate(8);
+}, { passive: true });
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>

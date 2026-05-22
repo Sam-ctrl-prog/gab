@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Environment
+.env
+
+# Database (use Render's persistent disk or seed on startup)
+data/gab.db
+data/*.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude internal
+.claude/
+
+# Template/design files (not needed in production)
+gab_wireframes.html
+gab_restaurant_before_after.html
+templte insp/

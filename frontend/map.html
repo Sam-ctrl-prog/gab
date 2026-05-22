@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GAB — Discover</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#534AB7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="GAB">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  body { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+  #map { flex: 1; min-height: 0; }
+
+  /* ── Top area ── */
+  .map-top {
+    flex-shrink: 0; background: var(--surface);
+    border-bottom: 0.5px solid var(--b1);
+    padding: 12px 16px 0;
+  }
+  .map-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .map-header h1 { font-size: 20px; font-weight: 600; letter-spacing: -.3px; }
+  .map-header .sub { font-size: 12px; color: var(--muted); }
+  .map-pills { padding-bottom: 12px; }
+  .map-pills .pill-scroll { gap: 6px; }
+
+  /* ── Map search ── */
+  .map-search-wrap { position: relative; margin-bottom: 10px; }
+  .map-search-results {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--surface); border: 0.5px solid var(--b2);
+    border-radius: 12px; max-height: 240px; overflow-y: auto;
+    z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,.12); display: none;
+  }
+  .map-search-results.open { display: block; }
+  .map-sr-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; cursor: pointer; border-bottom: 0.5px solid var(--b1);
+    transition: background .1s;
+  }
+  .map-sr-item:last-child { border-bottom: none; }
+  .map-sr-item:active { background: var(--s2); }
+  .map-sr-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .map-sr-meta { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+  /* ── Map ── */
+  #map {
+    flex: 1; min-height: 0; position: relative; z-index: 1;
+  }
+
+  /* ── Bottom sheet ── */
+  .sheet {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 0.5px solid var(--b1);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 20px rgba(0,0,0,.08);
+    display: flex; flex-direction: column;
+    z-index: 2;
+    transition: height .25s cubic-bezier(.4,0,.2,1);
+    will-change: height;
+  }
+  .sheet-handle-wrap {
+    flex-shrink: 0; padding: 10px 16px 0;
+    display: flex; align-items: center; gap: 10px;
+    cursor: grab; user-select: none; touch-action: none;
+  }
+  .sheet-handle-wrap:active { cursor: grabbing; }
+  .sheet-handle { width: 36px; height: 4px; background: var(--b2); border-radius: 2px; flex-shrink: 0; }
+  .sheet-tabs { display: flex; gap: 2px; background: var(--s2); border-radius: 20px; padding: 2px; flex-shrink: 0; }
+  .sheet-tab { font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 18px; border: none; background: transparent; color: var(--muted); cursor: pointer; transition: background .15s, color .15s; }
+  .sheet-tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .sheet-count { font-size: 11px; color: var(--muted); margin-left: auto; }
+  .sheet-list {
+    overflow-y: auto; padding: 10px 16px 0;
+    flex: 1;
+  }
+
+  /* ── Map pins ── */
+  .map-pin {
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.28);
+    font-size: 11px; font-weight: 700; cursor: pointer; transition: transform .1s;
+  }
+  .map-pin:active { transform: scale(1.15); }
+  .map-pin.plain     { width: 10px; height: 10px; background: #C4BDD8; border-width: 1.5px; }
+  .map-pin.rated-lo  { width: 22px; height: 22px; background: var(--amber-500, #F59E0B);  color: #fff; }
+  .map-pin.rated-mid { width: 26px; height: 26px; background: var(--purple-500, #7C3AED); color: #fff; }
+  .map-pin.rated-hi  { width: 32px; height: 32px; background: #2E7D32; color: #fff; font-size: 12px; }
+  .map-pin.event     { width: 26px; height: 26px; background: var(--coral-400); color: #fff; }
+
+  /* ── Popup ── */
+  .leaflet-popup-content-wrapper {
+    background: var(--surface);
+    border: 0.5px solid var(--b1);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.12);
+    padding: 0;
+  }
+  .leaflet-popup-content { margin: 0; }
+  .leaflet-popup-tip { background: var(--surface); }
+  .popup-body { padding: 14px 16px; min-width: 220px; }
+  .popup-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .popup-meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .popup-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+  .popup-pill {
+    font-size: 10px; padding: 2px 8px; border-radius: 20px;
+    background: var(--purple-50); color: var(--purple-800);
+  }
+  .popup-pill.hood { background: var(--s2); color: var(--dim); }
+  .popup-stats { display: flex; gap: 12px; margin-bottom: 10px; }
+  .popup-stat { font-size: 11px; color: var(--dim); }
+  .popup-stat strong { color: var(--purple-600); font-weight: 600; }
+  .popup-btn {
+    display: block; width: 100%; padding: 8px;
+    background: var(--purple-600); color: #fff;
+    border-radius: 8px; font-size: 12px; font-weight: 500;
+    text-align: center; border: none; cursor: pointer; margin-bottom: 4px;
+  }
+  .popup-btn.outline {
+    background: transparent; border: 0.5px solid var(--b2); color: var(--dim);
+  }
+  .popup-picks { margin-top: 10px; padding-top: 10px; border-top: 0.5px solid var(--b1); }
+  .popup-picks-title { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 6px; }
+  .pick-row { margin-bottom: 8px; padding-bottom: 7px; border-bottom: 0.5px solid var(--b1); }
+  .pick-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .pick-head { display: flex; justify-content: space-between; margin-bottom: 2px; }
+  .pick-name { font-size: 12px; color: var(--text); }
+  .pick-score { font-size: 12px; font-weight: 600; color: var(--purple-600); }
+  .pick-notes { font-size: 11px; color: var(--dim); margin-bottom: 3px; }
+  .pick-tags { display: flex; flex-wrap: wrap; gap: 3px; }
+  .pick-tag { font-size: 10px; padding: 1px 7px; border-radius: 20px; background: var(--purple-50); color: var(--purple-800); }
+
+  /* ── Quick pick ── */
+  .qp-section { margin-top: 10px; padding-top: 10px; border-top: 0.5px solid var(--b1); }
+  .qp-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 8px; }
+  .qp-scores { display: flex; gap: 3px; justify-content: space-between; margin-bottom: 8px; }
+  .qp-score { flex: 1; padding: 5px 2px; text-align: center; font-size: 11px; font-weight: 600;
+    border: 0.5px solid var(--b2); border-radius: 6px; cursor: pointer; background: var(--s2); color: var(--dim);
+    transition: background .1s, color .1s, border-color .1s; }
+  .qp-score.sel { background: var(--purple-600); color: #fff; border-color: var(--purple-600); }
+  .qp-row { display: flex; gap: 6px; margin-bottom: 0; }
+  .qp-note { flex: 1; font-size: 12px; padding: 6px 10px; border: 0.5px solid var(--b2); border-radius: 8px; background: var(--s2); color: var(--text); }
+  .qp-note::placeholder { color: var(--muted); }
+  .qp-submit { background: var(--purple-600); color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .qp-member { font-size: 12px; padding: 6px 10px; border: 0.5px solid var(--b2); border-radius: 8px; background: var(--s2); color: var(--text); width: 100%; margin-bottom: 6px; }
+
+  /* ── Activity feed ── */
+  .act-card { display: flex; gap: 12px; padding: 12px 0; border-bottom: 0.5px solid var(--b1); cursor: pointer; }
+  .act-card:last-child { border-bottom: none; }
+  .act-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--purple-100); color: var(--purple-700); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .act-body { flex: 1; min-width: 0; }
+  .act-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; margin-bottom: 2px; }
+  .act-member { font-size: 13px; font-weight: 600; color: var(--text); }
+  .act-time { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+  .act-rest { font-size: 12px; color: var(--purple-700); font-weight: 500; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .act-hood { font-size: 11px; color: var(--muted); }
+  .act-score { font-size: 13px; font-weight: 700; padding: 3px 8px; border-radius: 20px; flex-shrink: 0; align-self: flex-start; margin-top: 2px; }
+  .act-score.hi { background: #E6F4EA; color: #2E7D32; }
+  .act-score.mid { background: var(--purple-50); color: var(--purple-700); }
+  .act-score.lo { background: var(--coral-50); color: var(--coral-600); }
+  .act-notes { font-size: 12px; color: var(--dim); font-style: italic; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .act-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+
+  /* ── Filter panel ── */
+  .filter-toggle {
+    position: absolute; top: 12px; right: 12px; z-index: 10;
+    background: var(--surface); border: 0.5px solid var(--b1);
+    border-radius: 8px; padding: 7px 10px;
+    font-size: 12px; font-weight: 500; color: var(--dim);
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .filter-panel {
+    position: absolute; top: 52px; right: 12px; z-index: 10;
+    background: var(--surface); border: 0.5px solid var(--b1);
+    border-radius: 12px; padding: 14px;
+    width: 260px; display: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,.1);
+  }
+  .filter-panel.open { display: block; }
+  .filter-row { margin-bottom: 10px; }
+  .filter-row label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .filter-row select, .filter-row input { font-size: 12px; padding: 7px 10px; }
+
+  /* ── Legend ── */
+  .map-legend {
+    position: absolute; bottom: 12px; left: 12px; z-index: 10;
+    background: var(--surface); border: 0.5px solid var(--b1);
+    border-radius: 8px; padding: 8px 12px;
+    font-size: 10px; color: var(--dim);
+    display: flex; flex-direction: column; gap: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  }
+  .legend-row { display: flex; align-items: center; gap: 6px; }
+  /* Override cluster defaults */
+  .marker-cluster-small,
+  .marker-cluster-medium,
+  .marker-cluster-large { background: transparent !important; box-shadow: none !important; }
+  .marker-cluster-small div,
+  .marker-cluster-medium div,
+  .marker-cluster-large div { background: transparent !important; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="map-top">
+  <div class="map-header">
+    <div>
+      <h1>Tonight in NYC</h1>
+      <div class="sub">what's the move?</div>
+    </div>
+    <div style="font-size:12px;color:var(--purple-600);font-weight:600" id="spot-count">— spots</div>
+  </div>
+
+  <!-- Search bar -->
+  <div class="map-search-wrap">
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input id="map-search" type="text" placeholder="Search restaurants…"
+             autocomplete="off" oninput="onMapSearch(this.value)" onfocus="onMapSearch(this.value)">
+      <button id="map-search-clear" onclick="clearMapSearch()" style="display:none;background:none;border:none;color:var(--muted);font-size:16px;padding:0;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div class="map-search-results" id="map-search-results"></div>
+  </div>
+
+  <div class="map-pills">
+    <div class="pill-scroll" id="vibe-pills">
+      <span class="pill on" data-vibe="">All</span>
+      <span class="pill" data-vibe="member">Member picks</span>
+      <span class="pill" data-vibe="thai">Thai</span>
+      <span class="pill" data-vibe="italian">Italian</span>
+      <span class="pill" data-vibe="mexican">Mexican</span>
+      <span class="pill" data-vibe="japanese">Japanese</span>
+      <span class="pill" data-vibe="chinese">Chinese</span>
+      <span class="pill" data-vibe="bar">Late night</span>
+    </div>
+  </div>
+</div>
+
+<!-- Map -->
+<div id="map">
+  <button class="filter-toggle" id="filter-btn">⚙ Filters</button>
+  <div class="filter-panel" id="filter-panel">
+    <div class="filter-row">
+      <label>Borough</label>
+      <select id="f-borough"><option value="">All boroughs</option></select>
+    </div>
+    <div class="filter-row">
+      <label>Min member rating</label>
+      <input type="number" id="f-rating" placeholder="e.g. 7" min="0" max="10" step="0.5">
+    </div>
+    <div class="filter-row">
+      <label>Price</label>
+      <select id="f-price">
+        <option value="">Any price</option>
+        <option value="1">$ Budget</option>
+        <option value="2">$$ Mid</option>
+        <option value="3">$$$ Upscale</option>
+        <option value="4">$$$$ Fine</option>
+      </select>
+    </div>
+    <div class="filter-row" style="margin-bottom:0">
+      <label>Sort by</label>
+      <select id="f-sort">
+        <option value="member_rating">Member rating</option>
+        <option value="rating">Google rating</option>
+      </select>
+    </div>
+  </div>
+  <div class="map-legend">
+    <div class="legend-row"><div class="legend-dot" style="background:#2E7D32"></div> 8.5+ crew rating</div>
+    <div class="legend-row"><div class="legend-dot" style="background:#7C3AED"></div> 6.5–8.4 rated</div>
+    <div class="legend-row"><div class="legend-dot" style="background:#F59E0B"></div> rated below 6.5</div>
+    <div class="legend-row"><div class="legend-dot" style="background:#C4BDD8;width:8px;height:8px"></div> no picks yet</div>
+  </div>
+</div>
+
+<!-- Bottom sheet -->
+<div class="sheet">
+  <div class="sheet-handle-wrap">
+    <div class="sheet-handle"></div>
+    <div class="sheet-tabs">
+      <button class="sheet-tab active" id="tab-places" onclick="switchTab('places')">Places</button>
+      <button class="sheet-tab" id="tab-activity" onclick="switchTab('activity')">Activity</button>
+    </div>
+    <span class="sheet-count" id="list-count">Loading…</span>
+  </div>
+  <div id="stats-bar" style="display:none;padding:8px 16px 4px;border-bottom:0.5px solid var(--b1)">
+    <div style="display:flex;gap:16px">
+      <div style="text-align:center;flex:1">
+        <div style="font-size:18px;font-weight:700;color:#2E7D32" id="stat-top"></div>
+        <div style="font-size:10px;color:var(--muted)">crew rated 8.5+</div>
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="font-size:18px;font-weight:700;color:var(--purple-600)" id="stat-picks"></div>
+        <div style="font-size:10px;color:var(--muted)">total picks</div>
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="font-size:18px;font-weight:700;color:var(--text)" id="stat-members"></div>
+        <div style="font-size:10px;color:var(--muted)">members</div>
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="font-size:18px;font-weight:700;color:var(--amber-600,#D97706)" id="stat-avg"></div>
+        <div style="font-size:10px;color:var(--muted)">avg rating</div>
+      </div>
+    </div>
+  </div>
+  <div class="sheet-list" id="rest-list"></div>
+  <div class="sheet-list" id="activity-list" style="display:none"></div>
+</div>
+
+<!-- Bottom nav -->
+<nav class="bottom-nav">
+  <a href="/map.html" class="nav-item active">
+    <span class="nav-icon">🗺️</span>
+    <span>Discover</span>
+  </a>
+  <a href="/events.html" class="nav-item">
+    <span class="nav-icon">📅</span>
+    <span>Events</span>
+  </a>
+  <a href="/crm.html" class="nav-item">
+    <span class="nav-icon">👥</span>
+    <span>Members</span>
+  </a>
+  <a href="/menus.html" class="nav-item">
+    <span class="nav-icon">🍽️</span>
+    <span>Menus</span>
+  </a>
+</nav>
+
+<div id="toast-stack"></div>
+<div id="toast"></div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+// ── Utils ──────────────────────────────────────────────────────────────────
+const get = url => fetch(url).then(r => r.json());
+function skeletonCards(n = 5) {
+  return Array.from({length: n}, () => `
+    <div class="skel-card">
+      <div class="skel skel-circle" style="width:36px;height:36px"></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+        <div class="skel skel-line" style="width:55%"></div>
+        <div class="skel skel-line-sm" style="width:75%"></div>
+      </div>
+      <div class="skel skel-line" style="width:24px"></div>
+    </div>`).join("");
+}
+function toast(msg, type="") {
+  const stack = document.getElementById("toast-stack");
+  const el = document.createElement("div");
+  el.className = "toast-item" + (type ? " " + type : "");
+  el.textContent = msg;
+  stack.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("out");
+    setTimeout(() => el.remove(), 200);
+  }, 2800);
+}
+function priceStr(p) { return p ? "$".repeat(p) : ""; }
+function ratingColor(r) { return r >= 8 ? "var(--teal-600)" : r >= 6 ? "var(--purple-600)" : "var(--amber-600)"; }
+function cuisineClass(c) {
+  const s = (c||"").toLowerCase();
+  const keys = ["thai","italian","japanese","chinese","mexican","french","american","seafood","indian","mediterranean","korean","vietnamese","bar"];
+  for (const k of keys) if (s.includes(k)) return `cc-${k}`;
+  return "cc-default";
+}
+
+// ── Map init ───────────────────────────────────────────────────────────────
+const map = L.map("map", { zoomControl: false }).setView([40.728, -73.944], 12);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+  attribution: "© OpenStreetMap contributors © CARTO",
+  subdomains: "abcd", maxZoom: 19
+}).addTo(map);
+L.control.zoom({ position: "topright" }).addTo(map);
+
+// ── State ──────────────────────────────────────────────────────────────────
+let allFeatures = [];
+let markerLayer = L.markerClusterGroup({
+  maxClusterRadius: 48,
+  spiderfyOnMaxZoom: true,
+  showCoverageOnHover: false,
+  iconCreateFunction: cluster => {
+    const count = cluster.getChildCount();
+    const size = count < 10 ? 32 : count < 50 ? 38 : 44;
+    return L.divIcon({
+      html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:var(--purple-600);color:#fff;display:flex;align-items:center;justify-content:center;font-size:${size < 36 ? 11 : 13}px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.25);font-family:var(--sans)">${count}</div>`,
+      className: "", iconSize: [size, size], iconAnchor: [size/2, size/2]
+    });
+  }
+}).addTo(map);
+let markerMap = {};
+let activeVibe = "";
+
+// ── Filters ────────────────────────────────────────────────────────────────
+document.getElementById("filter-btn").addEventListener("click", e => {
+  e.stopPropagation();
+  document.getElementById("filter-panel").classList.toggle("open");
+});
+document.addEventListener("click", e => {
+  if (!e.target.closest("#filter-panel") && !e.target.closest("#filter-btn"))
+    document.getElementById("filter-panel").classList.remove("open");
+});
+["f-borough","f-rating","f-price","f-sort"].forEach(id => {
+  document.getElementById(id).addEventListener("change", loadMap);
+});
+
+// ── Vibe pills ─────────────────────────────────────────────────────────────
+document.getElementById("vibe-pills").addEventListener("click", e => {
+  const pill = e.target.closest(".pill");
+  if (!pill) return;
+  document.querySelectorAll("#vibe-pills .pill").forEach(p => p.classList.remove("on"));
+  pill.classList.add("on");
+  activeVibe = pill.dataset.vibe || "";
+  filterAndRender();
+});
+
+// ── Load data ──────────────────────────────────────────────────────────────
+async function loadMap() {
+  const borough = document.getElementById("f-borough").value;
+  const rating  = document.getElementById("f-rating").value;
+  const price   = document.getElementById("f-price").value;
+  const sort    = document.getElementById("f-sort").value;
+
+  let url = `/map/geojson?city=New+York&sort_by=${sort}`;
+  if (borough) url += `&borough=${encodeURIComponent(borough)}`;
+  if (rating)  url += `&min_member_rating=${rating}`;
+  if (price)   url += `&price_level=${price}`;
+
+  document.getElementById("rest-list").innerHTML = skeletonCards(6);
+  document.getElementById("list-count").textContent = "Loading…";
+  try {
+    const data = await get(url);
+    allFeatures = data.features || [];
+    document.getElementById("spot-count").textContent = `${allFeatures.length} spots`;
+    updateVibeCounts();
+    filterAndRender();
+  } catch(e) { toast("Could not load map data", "error"); }
+}
+
+function updateVibeCounts() {
+  document.querySelectorAll("#vibe-pills .pill").forEach(pill => {
+    const v = pill.dataset.vibe || "";
+    let count;
+    if (!v) count = allFeatures.length;
+    else if (v === "member") count = allFeatures.filter(f => f.properties.recommendation_count > 0).length;
+    else count = allFeatures.filter(f => {
+      const c = (f.properties.cuisine || "").toLowerCase();
+      const t = (f.properties.all_tags || []).join(" ").toLowerCase();
+      return c.includes(v) || t.includes(v);
+    }).length;
+    const base = pill.dataset.label || (pill.dataset.label = pill.textContent.replace(/\s*\(\d+\)$/, ""));
+    pill.textContent = `${base} (${count})`;
+  });
+}
+
+function filterAndRender() {
+  let features = allFeatures;
+  if (activeVibe === "member") {
+    features = features.filter(f => f.properties.recommendation_count > 0);
+  } else if (activeVibe) {
+    const v = activeVibe.toLowerCase();
+    features = features.filter(f => {
+      const c = (f.properties.cuisine || "").toLowerCase();
+      const t = (f.properties.all_tags || []).join(" ").toLowerCase();
+      return c.includes(v) || t.includes(v);
+    });
+  }
+  renderMarkers(features);
+  renderList(features);
+  document.getElementById("list-count").textContent = `${features.length} places`;
+  updateStatsBar(features);
+}
+
+function updateStatsBar(features) {
+  const withPicks = features.filter(f => f.properties.recommendation_count > 0);
+  if (!withPicks.length) { document.getElementById("stats-bar").style.display = "none"; return; }
+  const topSpots = withPicks.filter(f => (f.properties.member_avg_rating || 0) >= 8.5).length;
+  const totalPicks = withPicks.reduce((s, f) => s + (f.properties.recommendation_count || 0), 0);
+  const avgRating = withPicks.reduce((s, f) => s + (f.properties.member_avg_rating || 0), 0) / withPicks.length;
+  // estimate unique members from activity cache or just show picks
+  document.getElementById("stat-top").textContent = topSpots;
+  document.getElementById("stat-picks").textContent = totalPicks;
+  document.getElementById("stat-members").textContent = withPicks.length;
+  document.getElementById("stat-avg").textContent = avgRating.toFixed(1);
+  document.querySelector("#stats-bar > div > div:nth-child(3) > div:last-child").textContent = "spots with picks";
+  document.getElementById("stats-bar").style.display = "";
+}
+
+// ── Markers ────────────────────────────────────────────────────────────────
+function makePinIcon(p) {
+  const r = p.member_avg_rating;
+  const count = p.recommendation_count || 0;
+  let cls, size, label = "";
+  if (!count) {
+    cls = "plain"; size = 10;
+  } else if (r >= 8.5) {
+    cls = "rated-hi"; size = 32; label = r.toFixed(1);
+  } else if (r >= 6.5) {
+    cls = "rated-mid"; size = 26; label = r.toFixed(1);
+  } else {
+    cls = "rated-lo"; size = 22; label = r ? r.toFixed(1) : "";
+  }
+  return L.divIcon({
+    html: `<div class="map-pin ${cls}" style="width:${size}px;height:${size}px">${label}</div>`,
+    className: "", iconSize: [size, size], iconAnchor: [size/2, size/2], popupAnchor: [0, -size/2 - 4]
+  });
+}
+
+function renderMarkers(features) {
+  markerLayer.clearLayers();
+  markerMap = {};
+  features.forEach(f => {
+    const p = f.properties;
+    const [lng, lat] = f.geometry.coordinates;
+    const marker = L.marker([lat, lng], { icon: makePinIcon(p) });
+    marker.bindPopup(() => buildPopup(p), { maxWidth: 280, minWidth: 240 });
+    marker.on("popupopen", () => { loadPicks(p.id); loadMembersIntoSelect(p.id); });
+    marker.addTo(markerLayer);
+    markerMap[p.id] = marker;
+  });
+}
+
+// ── Popup ──────────────────────────────────────────────────────────────────
+function buildPopup(p) {
+  const price = priceStr(p.price_level);
+  const meta = [p.neighborhood || p.borough, p.cuisine, price].filter(Boolean).join(" · ");
+  const memberRating = p.member_avg_rating
+    ? `<strong style="color:${ratingColor(p.member_avg_rating)}">${p.member_avg_rating}</strong>/10`
+    : "no picks";
+  const googleRating = p.rating ? `${p.rating}★` : "";
+
+  const cChip = p.cuisine ? `<span class="cuisine-chip ${cuisineClass(p.cuisine)}" style="margin-bottom:8px;display:inline-flex">${p.cuisine}</span>` : "";
+  const hoodPill = (p.neighborhood||p.borough) ? `<span class="popup-pill hood">${p.neighborhood||p.borough}</span>` : "";
+
+  const scores = [1,2,3,4,5,6,7,8,9,10].map(n =>
+    `<span class="qp-score" onclick="qpSelectScore(this,${n})">${n}</span>`
+  ).join("");
+
+  return `<div class="popup-body">
+    <div class="popup-name">${p.name}</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${cChip}${hoodPill}</div>
+    <div class="popup-stats">
+      <div class="popup-stat">Member avg: ${memberRating}</div>
+      ${googleRating ? `<div class="popup-stat">Google: ${googleRating}</div>` : ""}
+      ${p.recommendation_count ? `<div class="popup-stat">${p.recommendation_count} pick${p.recommendation_count!==1?"s":""}</div>` : ""}
+    </div>
+    <button class="popup-btn" onclick="goToDetail(${p.id})">Deep dive →</button>
+    <button class="popup-btn outline" onclick="goToCreateEvent(${p.id}, '${p.name.replace(/'/g,"\\'")}')">Add to event</button>
+    ${p.recommendation_count > 0 ? `<div class="popup-picks"><div class="popup-picks-title">Crew says</div><div id="picks-${p.id}" class="picks-container">Loading…</div></div>` : ""}
+    <div class="qp-section">
+      <div class="qp-title">Log your pick</div>
+      <select class="qp-member" id="qp-member-${p.id}"><option value="">Loading members…</option></select>
+      <div class="qp-scores" id="qp-scores-${p.id}">${scores}</div>
+      <div class="qp-row">
+        <input class="qp-note" id="qp-note-${p.id}" placeholder="Any notes? (optional)">
+        <button class="qp-submit" onclick="submitQuickPick(${p.id})">Save</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function loadPicks(id) {
+  const el = document.getElementById(`picks-${id}`);
+  if (!el || el.dataset.loaded) return;
+  el.dataset.loaded = "1";
+  try {
+    const picks = await get(`/map/restaurant/${id}/picks`);
+    if (!picks.length) { el.textContent = "No picks yet."; return; }
+    el.innerHTML = picks.slice(0,3).map(pick => {
+      const tagPills = (pick.tags||[]).map(t =>
+        `<span class="pick-tag">${t}</span>`
+      ).join("");
+      return `<div class="pick-row">
+        <div class="pick-head">
+          <span class="pick-name">${pick.member_name}</span>
+          <span class="pick-score">${pick.rating}/10</span>
+        </div>
+        ${pick.notes ? `<div class="pick-notes">${pick.notes}</div>` : ""}
+        ${tagPills ? `<div class="pick-tags">${tagPills}</div>` : ""}
+      </div>`;
+    }).join("");
+  } catch(e) { if(el) el.textContent = "Could not load."; }
+}
+
+function goToDetail(id) { window.location.href = `/restaurants.html?id=${id}`; }
+function goToCreateEvent(id, name) { window.location.href = `/events.html?restaurant_id=${id}&restaurant_name=${encodeURIComponent(name)}`; }
+
+// ── Quick pick ─────────────────────────────────────────────────────────────
+let _membersCache = null;
+
+async function loadMembersIntoSelect(restaurantId) {
+  const sel = document.getElementById(`qp-member-${restaurantId}`);
+  if (!sel) return;
+  if (_membersCache) {
+    _populateMemberSelect(sel, _membersCache);
+    return;
+  }
+  try {
+    _membersCache = await get("/crm/contacts?type=member");
+    _populateMemberSelect(sel, _membersCache);
+  } catch(e) { sel.innerHTML = `<option value="">Could not load members</option>`; }
+}
+
+function _populateMemberSelect(sel, members) {
+  sel.innerHTML = `<option value="">Select member…</option>` +
+    members.map(m => `<option value="${m.id}">${m.name}</option>`).join("");
+}
+
+function qpSelectScore(el, score) {
+  const wrap = el.closest(".qp-scores");
+  wrap.querySelectorAll(".qp-score").forEach(s => s.classList.remove("sel"));
+  el.classList.add("sel");
+  el.dataset.score = score;
+  wrap.dataset.selected = score;
+}
+
+async function submitQuickPick(restaurantId) {
+  const scoresEl = document.getElementById(`qp-scores-${restaurantId}`);
+  const score = parseFloat(scoresEl.dataset.selected || "");
+  const memberId = document.getElementById(`qp-member-${restaurantId}`)?.value;
+  const note = document.getElementById(`qp-note-${restaurantId}`)?.value.trim();
+
+  if (!score) { toast("Pick a score first", "error"); return; }
+  if (!memberId) { toast("Select a member", "error"); return; }
+
+  try {
+    await fetch("/crm/recommendations", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        restaurant_id: restaurantId,
+        contact_id: parseInt(memberId),
+        rating: score,
+        notes: note || null,
+        tags: [],
+      })
+    });
+    // Reset form
+    scoresEl.querySelectorAll(".qp-score").forEach(s => s.classList.remove("sel"));
+    delete scoresEl.dataset.selected;
+    if (document.getElementById(`qp-note-${restaurantId}`)) document.getElementById(`qp-note-${restaurantId}`).value = "";
+    // Invalidate activity cache
+    activityCache = null;
+    toast("Pick saved! 🙌", "success");
+    // Reload picks in popup
+    const picksEl = document.getElementById(`picks-${restaurantId}`);
+    if (picksEl) { delete picksEl.dataset.loaded; loadPicks(restaurantId); }
+  } catch(e) { toast("Could not save pick", "error"); }
+}
+
+// ── List ───────────────────────────────────────────────────────────────────
+function renderList(features) {
+  const el = document.getElementById("rest-list");
+  if (!features.length) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">🍽️</div>
+      <div class="empty-text" style="margin-bottom:14px">No spots match these filters</div>
+      <button class="btn btn-outline btn-sm" onclick="seedNYC()">Seed NYC restaurants</button>
+    </div>`;
+    return;
+  }
+  el.innerHTML = features.slice(0, 40).map(f => {
+    const p = f.properties;
+    const price = priceStr(p.price_level);
+    const meta = [p.neighborhood || p.borough, p.cuisine, price].filter(Boolean).join(" · ");
+    const ratingHtml = p.member_avg_rating
+      ? `<span style="color:${ratingColor(p.member_avg_rating)};font-weight:600">${p.member_avg_rating}</span>`
+      : p.rating ? `<span>${p.rating}★</span>` : "";
+    const badge = p.recommendation_count > 0
+      ? `<span class="badge b-hot">${p.recommendation_count} crew pick${p.recommendation_count!==1?"s":""}</span>`
+      : "";
+    const cChip = p.cuisine ? `<span class="cuisine-chip ${cuisineClass(p.cuisine)}" style="margin-top:3px">${p.cuisine}</span>` : "";
+    return `<div class="rc" onclick="goToDetail(${p.id})">
+      <div class="rc-icon ic-purple">🍴</div>
+      <div class="rc-body">
+        <div class="rc-name">${p.name}</div>
+        <div class="rc-meta">${[p.neighborhood||p.borough, price].filter(Boolean).join(" · ")}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${cChip}${badge}</div>
+      </div>
+      <div class="rc-right">${ratingHtml}</div>
+    </div>`;
+  }).join("");
+}
+
+function flyTo(id) {
+  const marker = markerMap[id];
+  if (!marker) return;
+  map.flyTo(marker.getLatLng(), 15, { duration: .8 });
+  setTimeout(() => marker.openPopup(), 900);
+}
+
+// ── Sheet tabs ─────────────────────────────────────────────────────────────
+let activeTab = "places";
+let activityCache = null;
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById("tab-places").classList.toggle("active", tab === "places");
+  document.getElementById("tab-activity").classList.toggle("active", tab === "activity");
+  document.getElementById("rest-list").style.display = tab === "places" ? "" : "none";
+  document.getElementById("activity-list").style.display = tab === "activity" ? "" : "none";
+  if (tab === "activity") {
+    document.getElementById("list-count").textContent = "";
+    if (!activityCache) loadActivity();
+    else renderActivity(activityCache);
+  } else {
+    filterAndRender();
+  }
+}
+
+async function loadActivity() {
+  const el = document.getElementById("activity-list");
+  el.innerHTML = skeletonCards(5);
+  try {
+    activityCache = await get("/map/activity?limit=40");
+    renderActivity(activityCache);
+  } catch(e) { el.innerHTML = `<div class="empty"><div class="empty-icon">😕</div><div class="empty-text">Could not load activity</div></div>`; }
+}
+
+function timeAgo(iso) {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function renderActivity(items) {
+  const el = document.getElementById("activity-list");
+  if (!items.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🌟</div><div class="empty-text">No picks yet — be the first!</div></div>`;
+    return;
+  }
+  el.innerHTML = items.map(a => {
+    const initials = (a.member_name || "?").split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase();
+    const scoreClass = a.rating >= 8 ? "hi" : a.rating >= 5 ? "mid" : "lo";
+    const tagPills = (a.tags || []).slice(0,3).map(t =>
+      `<span class="pick-tag">${t}</span>`
+    ).join("");
+    const cClass = cuisineClass(a.restaurant_cuisine);
+    const cuisineHtml = a.restaurant_cuisine
+      ? `<span class="cuisine-chip ${cClass}" style="font-size:10px;padding:2px 7px">${a.restaurant_cuisine}</span>` : "";
+    return `<div class="act-card" onclick="goToDetail(${a.restaurant_id})">
+      <div class="act-avatar">${initials}</div>
+      <div class="act-body">
+        <div class="act-head">
+          <span class="act-member">${a.member_name}</span>
+          <span class="act-time">${timeAgo(a.created_at)}</span>
+        </div>
+        <div class="act-rest">${a.restaurant_name}</div>
+        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-bottom:${a.notes||tagPills?"3px":"0"}">
+          ${cuisineHtml}
+          ${a.restaurant_neighborhood ? `<span class="act-hood">${a.restaurant_neighborhood}</span>` : ""}
+        </div>
+        ${a.notes ? `<div class="act-notes">"${a.notes}"</div>` : ""}
+        ${tagPills ? `<div class="act-tags">${tagPills}</div>` : ""}
+      </div>
+      <div class="act-score ${scoreClass}">${a.rating}/10</div>
+    </div>`;
+  }).join("");
+}
+
+// ── Map search ─────────────────────────────────────────────────────────────
+let searchTimer = null;
+function onMapSearch(val) {
+  const drop = document.getElementById("map-search-results");
+  const clearBtn = document.getElementById("map-search-clear");
+  clearBtn.style.display = val ? "" : "none";
+  if (!val.trim()) { drop.classList.remove("open"); return; }
+
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    const q = val.toLowerCase();
+    const hits = allFeatures
+      .filter(f => f.properties.name.toLowerCase().includes(q) ||
+                   (f.properties.cuisine||"").toLowerCase().includes(q) ||
+                   (f.properties.neighborhood||"").toLowerCase().includes(q))
+      .slice(0, 8);
+
+    if (!hits.length) {
+      drop.innerHTML = `<div class="map-sr-item"><div><div class="map-sr-name" style="color:var(--muted)">No results</div></div></div>`;
+    } else {
+      drop.innerHTML = hits.map(f => {
+        const p = f.properties;
+        const meta = [p.neighborhood || p.borough, p.cuisine].filter(Boolean).join(" · ");
+        return `<div class="map-sr-item" onclick="selectSearchResult(${p.id})">
+          <span class="cuisine-chip ${cuisineClass(p.cuisine)}" style="font-size:10px;padding:2px 7px">✦</span>
+          <div>
+            <div class="map-sr-name">${p.name}</div>
+            <div class="map-sr-meta">${meta}</div>
+          </div>
+        </div>`;
+      }).join("");
+    }
+    drop.classList.add("open");
+  }, 200);
+}
+
+function selectSearchResult(id) {
+  clearMapSearch();
+  flyTo(id);
+}
+
+function clearMapSearch() {
+  document.getElementById("map-search").value = "";
+  document.getElementById("map-search-clear").style.display = "none";
+  document.getElementById("map-search-results").classList.remove("open");
+}
+
+// Close search results on outside click
+document.addEventListener("click", e => {
+  if (!e.target.closest(".map-search-wrap"))
+    document.getElementById("map-search-results").classList.remove("open");
+});
+
+async function seedNYC() {
+  try {
+    await fetch("/restaurants/seed-nyc", { method: "POST" });
+    toast("Seeding NYC restaurants in background…");
+    setTimeout(loadMap, 5000);
+  } catch(e) { toast("Seed failed", "error"); }
+}
+
+// ── Neighborhoods (borough dropdown) ──────────────────────────────────────
+async function loadNeighborhoods() {
+  try {
+    const data = await get("/map/neighborhoods?city=New+York");
+    const sel = document.getElementById("f-borough");
+    (data.boroughs || []).forEach(b => {
+      const opt = document.createElement("option");
+      opt.value = b; opt.textContent = b;
+      sel.appendChild(opt);
+    });
+  } catch(e) {}
+}
+
+// ── Draggable bottom sheet ─────────────────────────────────────────────────
+(function() {
+  const sheet = document.querySelector(".sheet");
+  const handle = document.querySelector(".sheet-handle-wrap");
+  const navH = 62;
+  const vh = () => window.innerHeight;
+  // Snap points as % of viewport height (sheet height)
+  const SNAPS = [0.22, 0.48, 0.88];
+  let snapIdx = 0;
+
+  function setHeight(h, animate = true) {
+    sheet.style.transition = animate ? "height .25s cubic-bezier(.4,0,.2,1)" : "none";
+    sheet.style.height = h + "px";
+    // Constrain list scroll area
+    const listEl = document.getElementById("rest-list");
+    const handleH = handle.offsetHeight + 10;
+    listEl.style.maxHeight = (h - handleH - navH) + "px";
+    // Nudge map to avoid being covered
+    document.getElementById("map").style.paddingBottom = Math.max(0, h - navH) + "px";
+  }
+
+  function snapTo(idx, animate = true) {
+    snapIdx = Math.max(0, Math.min(SNAPS.length - 1, idx));
+    setHeight(Math.round(SNAPS[snapIdx] * vh()), animate);
+  }
+
+  // Init at first snap
+  window.addEventListener("load", () => snapTo(0, false));
+  window.addEventListener("resize", () => snapTo(snapIdx, false));
+
+  // Tap handle to cycle
+  handle.addEventListener("click", () => snapTo((snapIdx + 1) % SNAPS.length));
+
+  // Drag
+  let startY = 0, startH = 0, dragging = false;
+  function onStart(e) {
+    dragging = true;
+    startY = (e.touches ? e.touches[0].clientY : e.clientY);
+    startH = sheet.offsetHeight;
+    sheet.style.transition = "none";
+  }
+  function onMove(e) {
+    if (!dragging) return;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY);
+    const newH = Math.min(Math.max(startH - (y - startY), SNAPS[0] * vh()), SNAPS[SNAPS.length-1] * vh());
+    setHeight(newH, false);
+  }
+  function onEnd(e) {
+    if (!dragging) return;
+    dragging = false;
+    const curH = sheet.offsetHeight;
+    // Find nearest snap
+    const diffs = SNAPS.map((s, i) => ({ i, d: Math.abs(s * vh() - curH) }));
+    snapTo(diffs.sort((a,b) => a.d - b.d)[0].i);
+  }
+  handle.addEventListener("mousedown", onStart);
+  handle.addEventListener("touchstart", onStart, { passive: true });
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("touchmove", onMove, { passive: true });
+  document.addEventListener("mouseup", onEnd);
+  document.addEventListener("touchend", onEnd);
+})();
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadNeighborhoods();
+loadMap();
+</script>
+
+<script>
+// ── Page transitions ─────────────────────────────────────────────────────
+document.body.style.opacity = '0';
+document.body.style.transition = 'opacity .15s ease';
+requestAnimationFrame(() => { document.body.style.opacity = '1'; });
+document.querySelectorAll('.bottom-nav a').forEach(a => {
+  a.addEventListener('click', e => {
+    const href = a.getAttribute('href');
+    if (!href || href === location.pathname || href === '#') return;
+    e.preventDefault();
+    document.body.style.opacity = '0';
+    setTimeout(() => { location.href = href; }, 150);
+  });
+});
+</script>
+
+
+<script>
+// ── Haptic feedback ───────────────────────────────────────────────────────
+document.addEventListener('click', e => {
+  const target = e.target.closest('button, .btn, .pill, .rc, .contact-card, .ev-card, .menu-card, .nav-item');
+  if (target && navigator.vibrate) navigator.vibrate(8);
+}, { passive: true });
+</script>
+
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
