@@ -1,0 +1,9 @@
+/restaurants/* https://gab-dining-club-production.up.railway.app/restaurants/:splat 200
+/restaurants https://gab-dining-club-production.up.railway.app/restaurants 200
+/map/* https://gab-dining-club-production.up.railway.app/map/:splat 200
+/menus/* https://gab-dining-club-production.up.railway.app/menus/:splat 200
+/cuisines/* https://gab-dining-club-production.up.railway.app/cuisines/:splat 200
+/crm/* https://gab-dining-club-production.up.railway.app/crm/:splat 200
+/reminders/* https://gab-dining-club-production.up.railway.app/reminders/:splat 200
+/rsvp/* https://gab-dining-club-production.up.railway.app/rsvp/:splat 200
+/health https://gab-dining-club-production.up.railway.app/health 200
