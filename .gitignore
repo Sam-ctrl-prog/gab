@@ -10,9 +10,7 @@ env/
 # Environment
 .env
 
-# Database (use Render's persistent disk or seed on startup)
-data/gab.db
-data/*.db
+# Database — committed for demo seeding; swap for Postgres in production
 
 # Editor
 .vscode/
